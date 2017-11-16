@@ -47,6 +47,7 @@ func main() {
 	hostName, _ := os.Hostname()
 	nodeName := fmt.Sprintf("callme_%v_%v", hostName, os.Getpid())
 
+	lm := mysql.NewLeaseManager(connectionString)
 	jm := mysql.NewJobManager(connectionString)
 	sm := mysql.NewScheduleManager(connectionString)
 
@@ -57,9 +58,9 @@ func main() {
 	now := func() time.Time { return time.Now().UTC() }
 
 	scheduleWorkerFunction := scheduleworker.NewScheduleWorker(now,
-		sm.AcquireScheduleLease,
+		lm.Acquire,
 		nodeName,
-		sm.RescindScheduleLease,
+		lm.Rescind,
 		sm.GetSchedules,
 		jm.StartJob,
 		sm.UpdateCron)
@@ -70,9 +71,9 @@ func main() {
 	}()
 
 	jobWorkerFunction := jobworker.NewJobWorker(now,
-		jm.AcquireJobLease,
+		lm.Acquire,
 		nodeName,
-		jm.RescindJobLease,
+		lm.Rescind,
 		jm.GetJob,
 		sns.Execute,
 		jm.CompleteJob)

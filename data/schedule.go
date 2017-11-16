@@ -49,16 +49,6 @@ type Crontab struct {
 	LastUpdated time.Time
 }
 
-// A ScheduleLease is a record of a worker which has claimed the right to update the schedule.
-// If a lease is in play, then no schedule processing of jobs by another agent can be done.
-//TODO: In future, consider adding sharding to schedules so that multiple workers can process them.
-type ScheduleLease struct {
-	ScheduleLeaseID int64
-	LockedBy        string
-	At              time.Time
-	Until           time.Time
-}
-
 // ScheduleCrontab is the Crontab data with its matching schedule attached.
 type ScheduleCrontab struct {
 	Schedule Schedule

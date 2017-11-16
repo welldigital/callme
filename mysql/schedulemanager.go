@@ -10,9 +10,6 @@ import (
 	_ "github.com/mattes/migrate/source/file" // Be able to migrate from files.
 )
 
-// ScheduleLeaseDuration is the amount of time that the lease will be locked down.
-const ScheduleLeaseDuration = time.Hour
-
 // ScheduleManager provides features to manage schedules using MySQL.
 type ScheduleManager struct {
 	ConnectionString string
@@ -100,7 +97,7 @@ func (m ScheduleManager) Deactivate(scheduleID int64) error {
 }
 
 // GetSchedules is a ScheduleGetter which gets all schedules where Next is in the past, in order to schedule jobs.
-func (m ScheduleManager) GetSchedules(scheduleLeaseID int64, now time.Time) ([]data.ScheduleCrontab, error) {
+func (m ScheduleManager) GetSchedules(now time.Time) ([]data.ScheduleCrontab, error) {
 	sc := make([]data.ScheduleCrontab, 0)
 
 	db, err := sql.Open("mysql", m.ConnectionString)
@@ -114,10 +111,9 @@ func (m ScheduleManager) GetSchedules(scheduleLeaseID int64, now time.Time) ([]d
 		"FROM " +
 		"`schedule` sc " +
 		"INNER JOIN `crontab` ct ON sc.idschedule = ct.idschedule " +
-		"INNER JOIN `schedulelease` sl ON sl.idschedulelease = ? " +
-		"WHERE ct.next < utc_date() AND sl.until > utc_date()"
+		"WHERE ct.next < utc_date()"
 
-	rows, err := db.Query(query, scheduleLeaseID)
+	rows, err := db.Query(query)
 	if err != nil {
 		return sc, err
 	}
@@ -171,69 +167,4 @@ func (m ScheduleManager) UpdateCron(crontabID int64, newPrevious, newNext, newLa
 
 	_, err = stmt.Exec(newPrevious, newNext, newLastUpdated, crontabID)
 	return err
-}
-
-// AcquireScheduleLease gets a lease to process schedules.
-func (m ScheduleManager) AcquireScheduleLease(now time.Time, lockedBy string) (scheduleLeaseID int64, until time.Time, ok bool, err error) {
-	db, err := sql.Open("mysql", m.ConnectionString)
-	until = now.Add(ScheduleLeaseDuration).Truncate(time.Second)
-	if err != nil {
-		return
-	}
-	defer db.Close()
-
-	stmt, err := db.Prepare("INSERT INTO `schedulelease`(lockedby, `at`, `until`) " +
-		"SELECT ?, ?, ? FROM dual WHERE NOT EXISTS (SELECT * FROM `schedulelease` HAVING MAX(`until`) > ?);")
-	if err != nil {
-		return
-	}
-	res, err := stmt.Exec(lockedBy, now, until, now)
-	if err != nil {
-		return
-	}
-	scheduleLeaseID, err = res.LastInsertId()
-	if err == nil && scheduleLeaseID > 0 {
-		ok = true
-	}
-	return
-}
-
-// GetScheduleLease gets a lease record from a table.
-func (m ScheduleManager) GetScheduleLease(scheduleLeaseID int64) (lease data.ScheduleLease, ok bool, err error) {
-	db, err := sql.Open("mysql", m.ConnectionString)
-	if err != nil {
-		return
-	}
-	defer db.Close()
-
-	rows, err := db.Query("SELECT idschedulelease, lockedby, `at`, `until` FROM `schedulelease` WHERE idschedulelease = ? limit 1;", scheduleLeaseID)
-	if err != nil {
-		return
-	}
-
-	for rows.Next() {
-		err = rows.Scan(&lease.ScheduleLeaseID, &lease.LockedBy, &lease.At, &lease.Until)
-		if err != nil {
-			return
-		}
-		ok = true
-	}
-
-	return
-}
-
-// RescindScheduleLease rescinds the right on a lease.
-func (m ScheduleManager) RescindScheduleLease(scheduleLeaseID int64) (err error) {
-	db, err := sql.Open("mysql", m.ConnectionString)
-	if err != nil {
-		return
-	}
-	defer db.Close()
-
-	stmt, err := db.Prepare("UPDATE `schedulelease` SET `until`=UTC_DATE() WHERE idschedulelease=?")
-	if err != nil {
-		return
-	}
-	_, err = stmt.Exec(scheduleLeaseID)
-	return
 }

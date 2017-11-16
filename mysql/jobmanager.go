@@ -10,9 +10,6 @@ import (
 	_ "github.com/mattes/migrate/source/file" // Be able to migrate from files.
 )
 
-// JobLeaseDuration is the amount of time that the lease will be locked down.
-const JobLeaseDuration = time.Hour
-
 // JobManager provides features to manage jobs using MySQL.
 type JobManager struct {
 	ConnectionString string
@@ -53,8 +50,8 @@ func (m JobManager) StartJob(when time.Time, arn string, payload string, schedul
 	return j, err
 }
 
-// GetAvailableJobCount returns the number of jobs present in the DB.
-func (m JobManager) GetAvailableJobCount(jobLeaseID int64) (int, error) {
+// GetAvailableJobCount returns the number of jobs present in the DB to process.
+func (m JobManager) GetAvailableJobCount() (int, error) {
 	count := 0
 
 	db, err := sql.Open("mysql", m.ConnectionString)
@@ -63,12 +60,10 @@ func (m JobManager) GetAvailableJobCount(jobLeaseID int64) (int, error) {
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT COUNT(*) FROM `job` j "+
-		"LEFT JOIN `jobresponse` jr on jr.idjobid = j.idjob "+
-		"INNER JOIN `joblease` jl ON jl.idjoblease = ? "+
-		"WHERE "+
-		" jr.idjobid IS NULL AND "+
-		" jl.`until` < UTC_DATE();", jobLeaseID)
+	rows, err := db.Query("SELECT COUNT(*) FROM `job` j " +
+		"LEFT JOIN `jobresponse` jr on jr.idjobid = j.idjob " +
+		"WHERE " +
+		"jr.idjobid IS NULL")
 
 	if err != nil {
 		return count, err
@@ -82,7 +77,7 @@ func (m JobManager) GetAvailableJobCount(jobLeaseID int64) (int, error) {
 }
 
 // GetJob retrieves a job that's ready to run from the queue.
-func (m JobManager) GetJob(jobLeaseID int64, now time.Time) (*data.Job, error) {
+func (m JobManager) GetJob(leaseID int64, now time.Time) (*data.Job, error) {
 	var j *data.Job
 
 	db, err := sql.Open("mysql", m.ConnectionString)
@@ -99,10 +94,10 @@ func (m JobManager) GetJob(jobLeaseID int64, now time.Time) (*data.Job, error) {
 		"j.payload "+
 		"FROM `job` j "+
 		"LEFT JOIN jobresponse jr on jr.idjobid = j.idjob "+
-		"INNER JOIN joblease jl ON jl.idjoblease = ? "+
+		"INNER JOIN lease l ON l.idlease = ? AND l.`type`='job' "+
 		"WHERE "+
 		"jr.idjobid IS NULL AND "+
-		"jl.`until` < UTC_DATE()", jobLeaseID)
+		"l.`until` < UTC_DATE()", leaseID)
 
 	if err != nil {
 		return j, err
@@ -117,9 +112,9 @@ func (m JobManager) GetJob(jobLeaseID int64, now time.Time) (*data.Job, error) {
 }
 
 // CompleteJob marks a job as complete.
-func (m JobManager) CompleteJob(jobLeaseID, jobID int64, now time.Time, resp string, jobError error) error {
+func (m JobManager) CompleteJob(leaseID, jobID int64, now time.Time, resp string, jobError error) error {
 	statement := "INSERT INTO `callme`.`jobresponse` " +
-		"(`idjoblease`, `idjobid`, `time`, `response`, `iserror`, `error`) " +
+		"(`idlease`, `idjobid`, `time`, `response`, `iserror`, `error`) " +
 		"VALUES " +
 		"(?, ?, ?, ?, ?, ?);"
 
@@ -138,44 +133,6 @@ func (m JobManager) CompleteJob(jobLeaseID, jobID int64, now time.Time, resp str
 	if jobError != nil {
 		isError = true
 	}
-	_, err = stmt.Exec(jobLeaseID, jobID, now, resp, isError, jobError.Error())
+	_, err = stmt.Exec(leaseID, jobID, now, resp, isError, jobError.Error())
 	return err
-}
-
-// AcquireJobLease gets a lease to process jobs.
-func (m JobManager) AcquireJobLease(now time.Time, lockedBy string) (jobLeaseID int64, until time.Time, err error) {
-	db, err := sql.Open("mysql", m.ConnectionString)
-	until = now.Add(JobLeaseDuration)
-	if err != nil {
-		return
-	}
-	defer db.Close()
-
-	stmt, err := db.Prepare("INSERT INTO `joblease`(lockedby, `at`, `until`) " +
-		"SELECT ?, ?, ? FROM dual WHERE NOT EXISTS (SELECT * FROM `joblease` HAVING MAX(`until`) > UTC_DATE());")
-	if err != nil {
-		return
-	}
-	res, err := stmt.Exec(lockedBy, now, until)
-	if err != nil {
-		return
-	}
-	jobLeaseID, err = res.LastInsertId()
-	return
-}
-
-// RescindJobLease rescinds the right on a lease.
-func (m JobManager) RescindJobLease(jobLeaseID int64) (err error) {
-	db, err := sql.Open("mysql", m.ConnectionString)
-	if err != nil {
-		return
-	}
-	defer db.Close()
-
-	stmt, err := db.Prepare("UPDATE `joblease` SET `until`=UTC_DATE() WHERE idjoblease=?")
-	if err != nil {
-		return
-	}
-	_, err = stmt.Exec(jobLeaseID)
-	return
 }

@@ -10,38 +10,44 @@ import (
 	"github.com/a-h/callme/data"
 )
 
+const leaseName = "schedule"
+
 // NewScheduleWorker creates a worker for the repetitive.Work function which processes schedules and queues any required jobs.
 func NewScheduleWorker(now func() time.Time,
-	scheduleLeaseAcquirer data.ScheduleLeaseAcquirer,
+	leaseAcquirer data.LeaseAcquirer,
 	lockedBy string,
-	scheduleLeaseRescinder data.ScheduleLeaseRescinder,
+	leaseRescinder data.LeaseRescinder,
 	scheduleGetter data.ScheduleGetter,
 	jobStarter data.JobStarter,
 	cronUpdater data.CronUpdater) repetitive.Worker {
 	return func() (workDone bool, err error) {
-		return findAndExecuteWork(now, scheduleLeaseAcquirer, lockedBy, scheduleLeaseRescinder, scheduleGetter, jobStarter, cronUpdater)
+		return findAndExecuteWork(now, leaseAcquirer, lockedBy, leaseRescinder, scheduleGetter, jobStarter, cronUpdater)
 	}
 }
 
 func findAndExecuteWork(clock func() time.Time,
-	scheduleLeaseAcquirer data.ScheduleLeaseAcquirer,
+	leaseAcquirer data.LeaseAcquirer,
 	lockedBy string,
-	scheduleLeaseRescinder data.ScheduleLeaseRescinder,
+	leaseRescinder data.LeaseRescinder,
 	scheduleGetter data.ScheduleGetter,
 	jobStarter data.JobStarter,
 	cronUpdater data.CronUpdater,
 ) (workDone bool, err error) {
 	now := clock()
-	scheduleLeaseID, until, err := scheduleLeaseAcquirer(now, lockedBy)
+	leaseID, until, ok, err := leaseAcquirer(now, leaseName, lockedBy)
 	if err != nil {
 		logger.Errorf("scheduleworker: failed to acquire lease with error: %v", err)
 		return
 	}
-	logger.Infof("scheduleworker: got lease %v until %v", scheduleLeaseID, until)
-	defer scheduleLeaseRescinder(scheduleLeaseID)
+	if !ok {
+		logger.Infof("scheduleworker: no work to do, another process has the lease")
+		return
+	}
+	logger.Infof("scheduleworker: got lease %v on %v until %v", leaseID, leaseName, until)
+	defer leaseRescinder(leaseID)
 
 	// See if there's some work to do.
-	scheduleCrontabs, err := scheduleGetter(scheduleLeaseID, now)
+	scheduleCrontabs, err := scheduleGetter(now)
 	if err != nil {
 		logger.Errorf("scheduleworker: failed to get schedules with error: %v", err)
 		return

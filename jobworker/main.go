@@ -11,14 +11,16 @@ import (
 	"github.com/cenkalti/backoff"
 )
 
+const leaseName = "job"
+
 // An Executor executes work.
 type Executor func(arn string, payload string) (resp string, err error)
 
 // NewJobWorker creates a worker for the repetitive.Work function which processes pending jobs.
 func NewJobWorker(now func() time.Time,
-	leaseAcquirer data.JobLeaseAcquirer,
+	leaseAcquirer data.LeaseAcquirer,
 	nodeName string,
-	leaseRescinder data.JobLeaseRescinder,
+	leaseRescinder data.LeaseRescinder,
 	jobGetter data.JobGetter,
 	e Executor,
 	jobCompleter data.JobCompleter) repetitive.Worker {
@@ -28,22 +30,26 @@ func NewJobWorker(now func() time.Time,
 }
 
 func findAndExecuteWork(now func() time.Time,
-	leaseAcquirer data.JobLeaseAcquirer,
+	leaseAcquirer data.LeaseAcquirer,
 	nodeName string,
-	leaseRescinder data.JobLeaseRescinder,
+	leaseRescinder data.LeaseRescinder,
 	jobGetter data.JobGetter,
 	e Executor,
 	jobCompleter data.JobCompleter) (workDone bool, err error) {
-	jobLeaseID, until, err := leaseAcquirer(now(), nodeName)
+	leaseID, until, ok, err := leaseAcquirer(now(), leaseName, nodeName)
 	if err != nil {
 		logger.Errorf("jobworker: failed to acquire lease with error: %v", err)
 		return
 	}
-	logger.Infof("jobworker: got lease %v until %v", jobLeaseID, until)
-	defer leaseRescinder(jobLeaseID)
+	if !ok {
+		logger.Infof("jobworker: no work to do, another process has the lease")
+		return
+	}
+	logger.Infof("jobworker: got lease %v on %v until %v", leaseID, leaseName, until)
+	defer leaseRescinder(leaseID)
 
 	// See if there's some work to do.
-	j, err := jobGetter(jobLeaseID, now())
+	j, err := jobGetter(leaseID, now())
 	if err != nil {
 		logger.Errorf("jobworker: error getting jobs: %v", err)
 	}
@@ -78,7 +84,7 @@ func findAndExecuteWork(now func() time.Time,
 
 	// Attempt to complete the work.
 	complete := func() error {
-		jce := jobCompleter(jobLeaseID, job.JobID, now(), resp, err)
+		jce := jobCompleter(leaseID, job.JobID, now(), resp, err)
 		if jce == nil {
 			logger.WithJob(job).Infof("jobworker: job complete success")
 		} else {

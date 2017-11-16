@@ -11,13 +11,7 @@ type ScheduleCreator func(from time.Time, arn string, payload string, crontabs [
 type ScheduleDeactivator func(scheduleID int64) error
 
 // ScheduleGetter gets all schedules where Next is in the past, in order to schedule jobs.
-type ScheduleGetter func(scheduleLeaseID int64, now time.Time) ([]ScheduleCrontab, error)
+type ScheduleGetter func(now time.Time) ([]ScheduleCrontab, error)
 
 // CronUpdater updates a Crontab record so that it's not included in future updates.
 type CronUpdater func(crontabID int64, newPrevious, newNext, newLastUpdated time.Time) error
-
-// ScheduleLeaseAcquirer gets a lease to update the schedule and queue jobs.
-type ScheduleLeaseAcquirer func(now time.Time, by string) (scheduleLeaseID int64, until time.Time, err error)
-
-// ScheduleLeaseRescinder rescinds the right on a lease.
-type ScheduleLeaseRescinder func(scheduleLeaseID int64) (err error)

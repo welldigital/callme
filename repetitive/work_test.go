@@ -36,7 +36,7 @@ func TestThatAWorkerCanBeStopped(t *testing.T) {
 		stopper <- true
 	}()
 
-	Work(worker, sleep, stopper)
+	Work("test", worker, sleep, stopper)
 
 	if timeoutReached {
 		t.Errorf("expected to be able to stop the worker within 10s")
@@ -75,7 +75,7 @@ func TestThatWorkersSleepWhenNoWorkHasBeenDone(t *testing.T) {
 		stopper <- true
 	}()
 
-	Work(worker, sleep, stopper)
+	Work("test", worker, sleep, stopper)
 
 	if timeoutReached {
 		t.Errorf("expected to be able to stop the worker within 10s")

@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func TestThatScheduleLeasesCanBeAcquiredAndRescinded(t *testing.T) {
+func TestThatLeasesCanBeAcquiredAndRescinded(t *testing.T) {
 	if !testing.Short() {
 		dsn, dbName, err := createTestDatabase()
 		if err != nil {
@@ -13,18 +13,19 @@ func TestThatScheduleLeasesCanBeAcquiredAndRescinded(t *testing.T) {
 		}
 		defer dropTestDatabase(dbName)
 
-		expectedLockedBy := "TestThatScheduleLeasesCanBeAcquiredAndRescinded"
+		expectedLockedBy := "TestThatLeasesCanBeAcquiredAndRescinded"
+		leaseType := "testLeaseType"
 
-		sm := NewScheduleManager(dsn)
-		leaseID, until, ok, err := sm.AcquireScheduleLease(time.Now().UTC(), expectedLockedBy)
+		lm := NewLeaseManager(dsn)
+		leaseID, until, ok, err := lm.Acquire(time.Now().UTC(), leaseType, expectedLockedBy)
 		if err != nil || !ok {
 			t.Fatalf("failed to acquire the lease with err: %v", err)
 		}
 
 		// Get the lease and check that it's valid until the 'until'.
-		lease, found, err := sm.GetScheduleLease(leaseID)
+		lease, found, err := lm.Get(leaseID)
 		if err != nil {
-			t.Fatalf("failed to get the schedule lease with err: %v", err)
+			t.Fatalf("failed to get the lease with err: %v", err)
 		}
 		if !found {
 			t.Fatal("was unable to find the newly created lease")
@@ -37,7 +38,7 @@ func TestThatScheduleLeasesCanBeAcquiredAndRescinded(t *testing.T) {
 		}
 
 		// Attempting to get another lease should fail, because one is already in use.
-		newLeaseID, until, ok, err := sm.AcquireScheduleLease(time.Now().UTC(), expectedLockedBy)
+		newLeaseID, until, ok, err := lm.Acquire(time.Now().UTC(), leaseType, expectedLockedBy)
 		if err != nil {
 			t.Fatalf("failed to acquire another lease with err: %v", err)
 		}
@@ -46,15 +47,15 @@ func TestThatScheduleLeasesCanBeAcquiredAndRescinded(t *testing.T) {
 		}
 
 		// Rescind the lease.
-		err = sm.RescindScheduleLease(leaseID)
+		err = lm.Rescind(leaseID)
 		if err != nil {
 			t.Errorf("unexpected error while rescinding a lease: %v", err)
 		}
 
 		// Get the lease and check that it's now in the past.
-		lease, found, err = sm.GetScheduleLease(leaseID)
+		lease, found, err = lm.Get(leaseID)
 		if err != nil {
-			t.Fatalf("failed to get the schedule lease with err: %v", err)
+			t.Fatalf("failed to get the lease with err: %v", err)
 		}
 		if !found {
 			t.Fatal("was unable to find the newly created lease after it was rescinded")
@@ -67,7 +68,7 @@ func TestThatScheduleLeasesCanBeAcquiredAndRescinded(t *testing.T) {
 		}
 
 		// Now getting a new lease, should be fine.
-		newLeaseID, until, ok, err = sm.AcquireScheduleLease(time.Now().UTC(), expectedLockedBy)
+		newLeaseID, until, ok, err = lm.Acquire(time.Now().UTC(), leaseType, expectedLockedBy)
 		if err != nil {
 			t.Fatalf("failed to acquire another lease with err: %v", err)
 		}
