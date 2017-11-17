@@ -20,7 +20,7 @@ func TestThatNoWorkIsDoneIfALeaseIsNotAcquired(t *testing.T) {
 		return 0, time.Time{}, false, nil
 	}
 
-	leaseRescinder := func(leaseID int64) (err error) {
+	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
@@ -64,7 +64,7 @@ func TestThatErrorsAcquiringTheLeaseQuitWork(t *testing.T) {
 		return 0, time.Time{}, false, errors.New("something bad happened")
 	}
 
-	leaseRescinder := func(leaseID int64) (err error) {
+	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
@@ -108,7 +108,7 @@ func TestThatAcquiringALeaseResultsInTryingToGetAJob(t *testing.T) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64) (err error) {
+	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
@@ -152,7 +152,7 @@ func TestThatGettingAJobResultsInWorkBeingExecuted(t *testing.T) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64) (err error) {
+	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
@@ -204,7 +204,7 @@ func TestThatErrorsGettingAJobResultsInNoWorkBeingExecuted(t *testing.T) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64) (err error) {
+	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
@@ -248,7 +248,7 @@ func TestThatWhenJobsAndCompletionsFailTheyGetRetried(t *testing.T) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64) (err error) {
+	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
@@ -316,7 +316,7 @@ func TestThatJobExecutionRetriesAreTimeLimited(t *testing.T) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64) (err error) {
+	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
@@ -347,7 +347,7 @@ func TestThatJobExecutionRetriesAreTimeLimited(t *testing.T) {
 	}
 
 	var err error
-	timeout := time.Second * 5
+	timeout := time.Second * 1
 	actual.WorkDone, err = findAndExecuteWork(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter, timeout)
 	actual.ErrorOccurred = err != nil
 
@@ -377,7 +377,7 @@ func TestThatMarkCompleteRetriesAreTimeLimited(t *testing.T) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64) (err error) {
+	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
@@ -408,7 +408,7 @@ func TestThatMarkCompleteRetriesAreTimeLimited(t *testing.T) {
 	}
 
 	var err error
-	timeout := time.Second * 5
+	timeout := time.Second * 1
 	actual.WorkDone, err = findAndExecuteWork(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter, timeout)
 	actual.ErrorOccurred = err != nil
 
@@ -438,7 +438,7 @@ func TestThatBothExecutionAndCompletionErrorsAreTracked(t *testing.T) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64) (err error) {
+	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}

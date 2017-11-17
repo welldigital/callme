@@ -23,7 +23,7 @@ func createTestDatabase() (dsn, dbName string, err error) {
 		return
 	}
 
-	name := randomDatabaseName()
+	dbName = randomDatabaseName()
 
 	db, err := sql.Open("mysql", getTestConnectionString())
 	if err != nil {
@@ -31,10 +31,10 @@ func createTestDatabase() (dsn, dbName string, err error) {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("CREATE DATABASE " + name)
+	_, err = db.Exec("CREATE DATABASE " + dbName)
 
 	// Update the DSN to point at the new database.
-	parsedDSN.DBName = name
+	parsedDSN.DBName = dbName
 	dsn = parsedDSN.FormatDSN()
 
 	// Fill it with schema.

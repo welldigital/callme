@@ -6,4 +6,4 @@ import "time"
 type LeaseAcquirer func(now time.Time, leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error)
 
 // LeaseRescinder rescinds the right on a lease.
-type LeaseRescinder func(leaseID int64) (err error)
+type LeaseRescinder func(leaseID int64, now time.Time) (err error)

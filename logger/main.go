@@ -1,24 +1,28 @@
 package logger
 
-import "github.com/Sirupsen/logrus"
-import "github.com/a-h/callme/data"
+import (
+	"github.com/a-h/callme/data"
+	log "github.com/sirupsen/logrus"
+)
 
-var l = logrus.New()
+func init() {
+	log.SetFormatter(&log.JSONFormatter{})
+}
 
 func Infof(format string, args ...interface{}) {
-	l.Infof(format, args...)
+	log.Infof(format, args...)
 }
 
 func Debugf(format string, args ...interface{}) {
-	l.Debugf(format, args...)
+	log.Debugf(format, args...)
 }
 
 func Errorf(format string, args ...interface{}) {
-	l.Errorf(format, args...)
+	log.Errorf(format, args...)
 }
 
-func WithCrontab(ct data.Crontab) *logrus.Entry {
-	return l.
+func WithCrontab(ct data.Crontab) *log.Entry {
+	return log.
 		WithField("CrontabID", ct.CrontabID).
 		WithField("Crontab", ct.Crontab).
 		WithField("LastUpdated", ct.LastUpdated).
@@ -26,8 +30,8 @@ func WithCrontab(ct data.Crontab) *logrus.Entry {
 		WithField("ScheduleID", ct.ScheduleID)
 }
 
-func WithJob(job data.Job) *logrus.Entry {
-	return l.
+func WithJob(job data.Job) *log.Entry {
+	return log.
 		WithField("JobID", job.JobID).
 		WithField("ARN", job.ARN).
 		WithField("ScheduleID", job.ScheduleID).

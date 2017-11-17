@@ -50,7 +50,7 @@ func findAndExecuteWork(now func() time.Time,
 		return
 	}
 	logger.Infof("jobworker: got lease %v on %v until %v", leaseID, leaseName, until)
-	defer leaseRescinder(leaseID)
+	defer leaseRescinder(leaseID, now())
 
 	// See if there's some work to do.
 	j, err := jobGetter(leaseID, now())

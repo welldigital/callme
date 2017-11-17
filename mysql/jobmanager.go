@@ -37,7 +37,7 @@ func (m JobManager) StartJob(when time.Time, arn string, payload string, schedul
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare("INSERT `job` SET arn=?,payload=?,idschedule=?,when=?")
+	stmt, err := db.Prepare("INSERT `job` SET arn=?,payload=?,idschedule=?,`when`=?")
 	if err != nil {
 		return j, err
 	}
@@ -97,7 +97,7 @@ func (m JobManager) GetJob(leaseID int64, now time.Time) (*data.Job, error) {
 		"INNER JOIN lease l ON l.idlease = ? AND l.`type`='job' "+
 		"WHERE "+
 		"jr.idjobid IS NULL AND "+
-		"l.`until` < UTC_DATE()", leaseID)
+		"l.`until` > ?", leaseID, now)
 
 	if err != nil {
 		return j, err
@@ -113,7 +113,7 @@ func (m JobManager) GetJob(leaseID int64, now time.Time) (*data.Job, error) {
 
 // CompleteJob marks a job as complete.
 func (m JobManager) CompleteJob(leaseID, jobID int64, now time.Time, resp string, jobError error) error {
-	statement := "INSERT INTO `callme`.`jobresponse` " +
+	statement := "INSERT INTO `jobresponse` " +
 		"(`idlease`, `idjobid`, `time`, `response`, `iserror`, `error`) " +
 		"VALUES " +
 		"(?, ?, ?, ?, ?, ?);"

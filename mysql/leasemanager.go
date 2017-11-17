@@ -75,17 +75,20 @@ func (m LeaseManager) Get(leaseID int64) (lease data.Lease, ok bool, err error) 
 }
 
 // Rescind rescinds the right on a lease.
-func (m LeaseManager) Rescind(leaseID int64) (err error) {
+func (m LeaseManager) Rescind(leaseID int64, now time.Time) (err error) {
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
 		return
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare("UPDATE `lease` SET `until`=utc_date()-1 WHERE idlease=?")
+	// The date precision is quite low, so set it to the past.
+	now = now.Add(-1 * time.Minute)
+
+	stmt, err := db.Prepare("UPDATE `lease` SET `until`=? WHERE idlease=?")
 	if err != nil {
 		return
 	}
-	_, err = stmt.Exec(leaseID)
+	_, err = stmt.Exec(now, leaseID)
 	return
 }

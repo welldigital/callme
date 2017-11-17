@@ -19,9 +19,9 @@ func TestThatAWorkerCanBeStopped(t *testing.T) {
 		return true, nil
 	}
 
-	// Start a 10s timeout.
+	// Start a 5s timeout.
 	go func() {
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 5)
 		fmt.Println("test: timeout reached, stopping process")
 		timeoutReached = true
 		stopper <- true

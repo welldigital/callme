@@ -44,7 +44,7 @@ func findAndExecuteWork(clock func() time.Time,
 		return
 	}
 	logger.Infof("scheduleworker: got lease %v on %v until %v", leaseID, leaseName, until)
-	defer leaseRescinder(leaseID)
+	defer leaseRescinder(leaseID, now)
 
 	// See if there's some work to do.
 	scheduleCrontabs, err := scheduleGetter(now)

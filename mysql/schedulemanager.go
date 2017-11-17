@@ -41,12 +41,12 @@ func (m ScheduleManager) Create(from time.Time, arn string, payload string, cron
 	}
 	defer db.Close()
 
-	scheduleInsertSQL := "INSERT INTO `callme`.`schedule` " +
-		"(`externalid`,`by`,`arn`,`payload`,`created`,`from`,`active`,`deactivateddate`) " +
-		"VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+	scheduleInsertSQL := "INSERT INTO `schedule` " +
+		"(`externalid`,`by`,`arn`,`payload`,`created`,`from`,`active`) " +
+		"VALUES (?, ?, ?, ?, ?, ?, ?)"
 
-	crontabInsertSQL := "INSERT INTO `callme`.`crontab` " +
-		"(`ScheduleID`, `Crontab`, `Previous`, `Next`, `LastUpdated`)" +
+	crontabInsertSQL := "INSERT INTO `crontab` " +
+		"(`idschedule`, `crontab`, `previous`, `next`, `lastupdated`)" +
 		"VALUES (?, ?, ?, ?, ?)"
 
 	tx, err := db.Begin()
@@ -60,15 +60,22 @@ func (m ScheduleManager) Create(from time.Time, arn string, payload string, cron
 		return 0, err
 	}
 	res, err := scheduleInsert.Exec(s.ExternalID, s.By, s.ARN, s.Payload,
-		s.Created, s.From, s.Active, s.DeactivatedDate)
+		s.Created, s.From, s.Active)
+	if err != nil {
+		return 0, err
+	}
+	scheduleID, err := res.LastInsertId()
 	if err != nil {
 		return 0, err
 	}
 
 	crontabInsert, err := db.Prepare(crontabInsertSQL)
+	if err != nil {
+		return 0, err
+	}
 	var emptyTime time.Time
 	for _, crontab := range crontabs {
-		_, err := crontabInsert.Exec(res.LastInsertId, crontab, emptyTime, from, emptyTime)
+		_, err := crontabInsert.Exec(scheduleID, crontab, emptyTime, from, emptyTime)
 		if err != nil {
 			return 0, err
 		}
@@ -78,7 +85,6 @@ func (m ScheduleManager) Create(from time.Time, arn string, payload string, cron
 	if err != nil {
 		return 0, err
 	}
-
 	return res.LastInsertId()
 }
 
@@ -111,9 +117,9 @@ func (m ScheduleManager) GetSchedules(now time.Time) ([]data.ScheduleCrontab, er
 		"FROM " +
 		"`schedule` sc " +
 		"INNER JOIN `crontab` ct ON sc.idschedule = ct.idschedule " +
-		"WHERE ct.next < utc_date()"
+		"WHERE ct.next < ?"
 
-	rows, err := db.Query(query)
+	rows, err := db.Query(query, now)
 	if err != nil {
 		return sc, err
 	}
