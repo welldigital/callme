@@ -1,6 +1,7 @@
 package jobworker
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/a-h/callme/logger"
@@ -12,6 +13,8 @@ import (
 )
 
 const leaseName = "job"
+
+const defaultTimeout = time.Minute * 5
 
 // An Executor executes work.
 type Executor func(arn string, payload string) (resp string, err error)
@@ -25,7 +28,7 @@ func NewJobWorker(now func() time.Time,
 	e Executor,
 	jobCompleter data.JobCompleter) repetitive.Worker {
 	return func() (workDone bool, err error) {
-		return findAndExecuteWork(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, e, jobCompleter)
+		return findAndExecuteWork(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, e, jobCompleter, defaultTimeout)
 	}
 }
 
@@ -35,7 +38,8 @@ func findAndExecuteWork(now func() time.Time,
 	leaseRescinder data.LeaseRescinder,
 	jobGetter data.JobGetter,
 	e Executor,
-	jobCompleter data.JobCompleter) (workDone bool, err error) {
+	jobCompleter data.JobCompleter,
+	timeout time.Duration) (workDone bool, err error) {
 	leaseID, until, ok, err := leaseAcquirer(now(), leaseName, nodeName)
 	if err != nil {
 		logger.Errorf("jobworker: failed to acquire lease with error: %v", err)
@@ -76,18 +80,19 @@ func findAndExecuteWork(now func() time.Time,
 	}
 
 	bo := backoff.NewExponentialBackOff()
-	err = backoff.Retry(execute, bo)
-	if err != nil {
-		logger.WithJob(job).Errorf("jobworker: retries exceeded, logging error: %v", err)
+	bo.MaxElapsedTime = timeout
+	executionError := backoff.Retry(execute, bo)
+	if executionError != nil {
+		logger.WithJob(job).Errorf("jobworker: retries exceeded, logging error: %v", executionError)
+	} else {
+		workDone = true
 	}
-
-	workDone = true
 
 	// Attempt to complete the work.
 	complete := func() error {
-		jce := jobCompleter(leaseID, job.JobID, now(), resp, err)
+		jce := jobCompleter(leaseID, job.JobID, now(), resp, executionError)
 		if jce == nil {
-			logger.WithJob(job).Infof("jobworker: job complete success")
+			logger.WithJob(job).Infof("jobworker: job marked as complete successfully")
 		} else {
 			logger.WithJob(job).Warnf("jobworker: job complete failure, but may retry")
 		}
@@ -95,11 +100,25 @@ func findAndExecuteWork(now func() time.Time,
 	}
 
 	bo = backoff.NewExponentialBackOff()
-	err = backoff.Retry(complete, bo)
-	if err != nil {
-		logger.WithJob(job).Error("jobworker: job complete retries exceeded")
-		return
+	bo.MaxElapsedTime = timeout
+	completionError := backoff.Retry(complete, bo)
+	if completionError != nil {
+		logger.WithJob(job).Errorf("jobworker: job complete retries exceeded, error: %v", completionError)
 	}
 
+	err = mergeErrors(executionError, completionError)
 	return
+}
+
+func mergeErrors(execution, completion error) error {
+	if execution == nil && completion == nil {
+		return nil
+	}
+	if execution == nil && completion != nil {
+		return fmt.Errorf("completion: %v", completion)
+	}
+	if execution != nil && completion == nil {
+		return fmt.Errorf("execution: %v", execution)
+	}
+	return fmt.Errorf("execution: %v, completion: %v", execution, completion)
 }
