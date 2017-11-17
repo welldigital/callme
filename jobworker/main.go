@@ -52,6 +52,7 @@ func findAndExecuteWork(now func() time.Time,
 	j, err := jobGetter(leaseID, now())
 	if err != nil {
 		logger.Errorf("jobworker: error getting jobs: %v", err)
+		return
 	}
 	if j == nil {
 		logger.Infof("jobworker: no jobs available")

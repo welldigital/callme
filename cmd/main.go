@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -79,6 +81,8 @@ func main() {
 		jm.CompleteJob)
 
 	go func() {
+		jitter, _ := time.ParseDuration(strconv.Itoa(rand.Intn(1000)) + "ms")
+		time.Sleep(jitter)
 		repetitive.Work("jobs", jobWorkerFunction, repetitive.WaitForFiveSeconds, stopper)
 		waiter <- true
 	}()
