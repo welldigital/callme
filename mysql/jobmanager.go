@@ -111,6 +111,44 @@ func (m JobManager) GetJob(leaseID int64, now time.Time) (*data.Job, error) {
 	return j, err
 }
 
+// GetJobResponse retrieves a completed job's data.
+func (m JobManager) GetJobResponse(jobID int64) (j data.Job, r data.JobResponse, jobOK, responseOK bool, err error) {
+	db, err := sql.Open("mysql", m.ConnectionString)
+	if err != nil {
+		return
+	}
+	defer db.Close()
+
+	rows, err := db.Query("SELECT "+
+		"j.idjob, j.idschedule, j.`when`, j.arn, j.payload, "+
+		"jr.idjobresponse, jr.idlease, jr.idjobid, jr.`time`, jr.response, jr.iserror, jr.`error` "+
+		"FROM `job` j "+
+		"LEFT JOIN jobresponse jr on jr.idjobid = j.idjob "+
+		"WHERE "+
+		"jr.idjobid = ?", jobID)
+
+	if err != nil {
+		return
+	}
+
+	for rows.Next() {
+		jobOK = true
+		var isErrorStr string
+		err = rows.Scan(&j.JobID, &j.ScheduleID, &j.When, &j.ARN, &j.Payload,
+			&r.JobResponseID, &r.LeaseID, &r.JobID, &r.Time, &r.Response, &isErrorStr, &r.Error)
+		r.IsError = convertMySQLBoolean(isErrorStr)
+		break
+	}
+	return j, r, jobOK, r.JobResponseID > 0, err
+}
+
+func convertMySQLBoolean(s string) bool {
+	if len(s) == 1 && s[0] == 1 {
+		return true
+	}
+	return false
+}
+
 // CompleteJob marks a job as complete.
 func (m JobManager) CompleteJob(leaseID, jobID int64, now time.Time, resp string, jobError error) error {
 	statement := "INSERT INTO `jobresponse` " +
