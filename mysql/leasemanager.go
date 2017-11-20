@@ -78,6 +78,9 @@ func (m LeaseManager) Get(leaseID int64) (lease data.Lease, ok bool, err error) 
 
 // Rescind rescinds the right on a lease.
 func (m LeaseManager) Rescind(leaseID int64) (err error) {
+	if leaseID == 0 {
+		return nil
+	}
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
 		return

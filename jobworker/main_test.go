@@ -8,7 +8,7 @@ import (
 	"github.com/a-h/callme/data"
 )
 
-const nodeName = "testnode"
+const nodeName = "jobworker_test"
 
 func TestThatNoWorkIsDoneIfALeaseIsNotAcquired(t *testing.T) {
 	// Don't acquire a lease, because one is in use.

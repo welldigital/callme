@@ -54,11 +54,6 @@ func findAndExecuteWork(leaseAcquirer data.LeaseAcquirer,
 
 	now := time.Now().UTC()
 	for _, sc := range scheduleCrontabs {
-		if !needsUpdating(sc.Crontab, now) {
-			logger.WithCrontab(sc.Crontab).Debugf("scheduleworker: skipping crontab: it has not yet expired")
-			continue
-		}
-
 		c, err := cron.Parse(sc.Crontab.Crontab)
 		if err != nil {
 			logger.WithCrontab(sc.Crontab).Errorf("scheduleworker: skipping crontab: failed to parse")
@@ -82,8 +77,4 @@ func findAndExecuteWork(leaseAcquirer data.LeaseAcquirer,
 		}
 	}
 	return
-}
-
-func needsUpdating(crontab data.Crontab, now time.Time) bool {
-	return crontab.Next.Before(now)
 }
