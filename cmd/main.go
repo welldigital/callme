@@ -61,8 +61,7 @@ func main() {
 		nodeName,
 		lm.Rescind,
 		sm.GetSchedules,
-		jm.StartJob,
-		sm.UpdateCron)
+		sm.StartJobAndUpdateCron)
 
 	go func() {
 		repetitive.Work("schedules", scheduleWorkerFunction, func() { time.Sleep(time.Minute) }, stopper)

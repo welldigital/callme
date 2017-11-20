@@ -27,17 +27,13 @@ func TestThatNoWorkIsDoneIfALeaseIsNotAcquired(t *testing.T) {
 		return []data.ScheduleCrontab{}, nil
 	}
 
-	jobStarter := func(when time.Time, arn string, payload string, scheduleID *int64) (data.Job, error) {
+	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		actual.JobsStarted++
-		return data.Job{}, nil
-	}
-
-	cronUpdater := func(crontabID int64, newPrevious, newNext time.Time) error {
 		actual.CrontabsUpdated[crontabID] = newNext
-		return nil
+		return 1, nil
 	}
 
-	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, jobStarter, cronUpdater)
+	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, scheduledJobStarter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -72,17 +68,13 @@ func TestThatErrorsAcquiringALeaseAreReturned(t *testing.T) {
 		return []data.ScheduleCrontab{}, nil
 	}
 
-	jobStarter := func(when time.Time, arn string, payload string, scheduleID *int64) (data.Job, error) {
+	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		actual.JobsStarted++
-		return data.Job{}, nil
-	}
-
-	cronUpdater := func(crontabID int64, newPrevious, newNext time.Time) error {
 		actual.CrontabsUpdated[crontabID] = newNext
-		return nil
+		return 1, nil
 	}
 
-	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, jobStarter, cronUpdater)
+	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, scheduledJobStarter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -117,17 +109,13 @@ func TestThatIfALeaseIsAcquiredSchedulesAreQueried(t *testing.T) {
 		return []data.ScheduleCrontab{}, nil
 	}
 
-	jobStarter := func(when time.Time, arn string, payload string, scheduleID *int64) (data.Job, error) {
+	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		actual.JobsStarted++
-		return data.Job{}, nil
-	}
-
-	cronUpdater := func(crontabID int64, newPrevious, newNext time.Time) error {
 		actual.CrontabsUpdated[crontabID] = newNext
-		return nil
+		return 1, nil
 	}
 
-	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, jobStarter, cronUpdater)
+	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, scheduledJobStarter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -162,17 +150,13 @@ func TestThatErrorsRetrievingSchedulesAreReturned(t *testing.T) {
 		return []data.ScheduleCrontab{}, errors.New("error getting schedules")
 	}
 
-	jobStarter := func(when time.Time, arn string, payload string, scheduleID *int64) (data.Job, error) {
+	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		actual.JobsStarted++
-		return data.Job{}, nil
-	}
-
-	cronUpdater := func(crontabID int64, newPrevious, newNext time.Time) error {
 		actual.CrontabsUpdated[crontabID] = newNext
-		return nil
+		return 1, nil
 	}
 
-	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, jobStarter, cronUpdater)
+	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, scheduledJobStarter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -233,17 +217,13 @@ func TestThatExpiredSchedulesStartNewJobs(t *testing.T) {
 		}, nil
 	}
 
-	jobStarter := func(when time.Time, arn string, payload string, scheduleID *int64) (data.Job, error) {
+	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		actual.JobsStarted++
-		return data.Job{}, nil
-	}
-
-	cronUpdater := func(crontabID int64, newPrevious, newNext time.Time) error {
 		actual.CrontabsUpdated[crontabID] = newNext
-		return nil
+		return 1, nil
 	}
 
-	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, jobStarter, cronUpdater)
+	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, scheduledJobStarter)
 
 	var err error
 	actual.WorkDone, err = w()

@@ -68,11 +68,13 @@ func TestScheduleManager(t *testing.T) {
 		AssertCrontab(t, "get schedule", expected.Crontab, actual.Crontab)
 
 		// Update crontab to be checked again in the future.
-		newPrevious := actual.Crontab.Previous
 		newNext := time.Now().Add(time.Hour * 24)
-		err = sm.UpdateCron(actual.Crontab.CrontabID, newPrevious, newNext)
+		jobID, err := sm.StartJobAndUpdateCron(actual.Crontab.CrontabID, actual.Schedule.ScheduleID, newNext)
 		if err != nil {
-			t.Errorf("failed to update the cron with error: %v", err)
+			t.Errorf("failed to update the cron and start a new job with error: %v", err)
+		}
+		if jobID == 0 {
+			t.Errorf("failed to start a new job while updating the cron, expected > 0, but got %v", jobID)
 		}
 
 		// Check it's gone from the list.

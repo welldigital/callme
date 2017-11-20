@@ -1,8 +1,6 @@
 package scheduleworker
 
 import (
-	"time"
-
 	"github.com/a-h/callme/logger"
 	"github.com/a-h/callme/repetitive"
 	cron "gopkg.in/robfig/cron.v2"
@@ -17,10 +15,9 @@ func NewScheduleWorker(leaseAcquirer data.LeaseAcquirer,
 	lockedBy string,
 	leaseRescinder data.LeaseRescinder,
 	scheduleGetter data.ScheduleGetter,
-	jobStarter data.JobStarter,
-	cronUpdater data.CronUpdater) repetitive.Worker {
+	scheduledJobStarter data.ScheduledJobStarter) repetitive.Worker {
 	return func() (workDone bool, err error) {
-		return findAndExecuteWork(leaseAcquirer, lockedBy, leaseRescinder, scheduleGetter, jobStarter, cronUpdater)
+		return findAndExecuteWork(leaseAcquirer, lockedBy, leaseRescinder, scheduleGetter, scheduledJobStarter)
 	}
 }
 
@@ -28,8 +25,7 @@ func findAndExecuteWork(leaseAcquirer data.LeaseAcquirer,
 	lockedBy string,
 	leaseRescinder data.LeaseRescinder,
 	scheduleGetter data.ScheduleGetter,
-	jobStarter data.JobStarter,
-	cronUpdater data.CronUpdater,
+	scheduledJobStarter data.ScheduledJobStarter,
 ) (workDone bool, err error) {
 	leaseID, until, ok, err := leaseAcquirer(leaseName, lockedBy)
 	if err != nil {
@@ -52,7 +48,6 @@ func findAndExecuteWork(leaseAcquirer data.LeaseAcquirer,
 
 	logger.Infof("scheduleworker: processing %v crontabs", len(scheduleCrontabs))
 
-	now := time.Now().UTC()
 	for _, sc := range scheduleCrontabs {
 		c, err := cron.Parse(sc.Crontab.Crontab)
 		if err != nil {
@@ -60,20 +55,15 @@ func findAndExecuteWork(leaseAcquirer data.LeaseAcquirer,
 			continue
 		}
 
-		// Schedule a job to run immediately.
-		job, err := jobStarter(now, sc.Schedule.ARN, sc.Schedule.Payload, &sc.Crontab.ScheduleID)
+		// Schedule a job to run immediately and update the cronjob.
+		newNext := c.Next(sc.Crontab.Next)
+		jobID, err := scheduledJobStarter(sc.Crontab.CrontabID, sc.Schedule.ScheduleID, newNext)
 		if err != nil {
-			logger.WithCrontab(sc.Crontab).Errorf("scheduleworker: failed to start: %v", err)
+			logger.WithCrontab(sc.Crontab).Errorf("scheduleworker: failed to start job and update cron: %v", err)
 			continue
 		}
-		logger.WithJob(job).Infof("sceduler.Process: started job")
-
-		logger.WithCrontab(sc.Crontab).Infof("sceduler.Process: updating crontab to run again in the future")
-		newPrevious := sc.Crontab.Next
-		newNext := c.Next(sc.Crontab.Next)
-		err = cronUpdater(sc.Crontab.CrontabID, newPrevious, newNext)
-		if err != nil {
-			logger.WithCrontab(sc.Crontab).Errorf("scheduleworker: failed to update cron: %v", err)
+		if jobID == 0 {
+			logger.WithCrontab(sc.Crontab).Error("scheduleworker: received a zero jobID when starting a job")
 		}
 	}
 	return

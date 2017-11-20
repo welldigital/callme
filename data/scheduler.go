@@ -13,5 +13,5 @@ type ScheduleDeactivator func(scheduleID int64) error
 // ScheduleGetter gets all schedules where Next is in the past, in order to schedule jobs.
 type ScheduleGetter func() ([]ScheduleCrontab, error)
 
-// CronUpdater updates a Crontab record so that it's not included in future updates.
-type CronUpdater func(crontabID int64, newPrevious, newNext time.Time) error
+// ScheduledJobStarter starts a new job and updates a Crontab record in a transaction so that it's not included in future updates.
+type ScheduledJobStarter func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error)

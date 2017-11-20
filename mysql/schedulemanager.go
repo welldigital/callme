@@ -55,7 +55,7 @@ func (m ScheduleManager) Create(from time.Time, arn string, payload string, cron
 	}
 	defer tx.Rollback()
 
-	scheduleInsert, err := db.Prepare(scheduleInsertSQL)
+	scheduleInsert, err := tx.Prepare(scheduleInsertSQL)
 	if err != nil {
 		return 0, err
 	}
@@ -69,7 +69,7 @@ func (m ScheduleManager) Create(from time.Time, arn string, payload string, cron
 		return 0, err
 	}
 
-	crontabInsert, err := db.Prepare(crontabInsertSQL)
+	crontabInsert, err := tx.Prepare(crontabInsertSQL)
 	if err != nil {
 		return 0, err
 	}
@@ -158,26 +158,49 @@ func (m ScheduleManager) GetSchedules() ([]data.ScheduleCrontab, error) {
 	return sc, err
 }
 
-// UpdateCron is a cron updater which updates a Crontab record to mark it processed.
+// StartJobAndUpdateCron starts a new job based on the schedule record's arn and payload and updates the existing crontab to the new date.
 // All dates should be UTC.
-func (m ScheduleManager) UpdateCron(crontabID int64, newPrevious, newNext time.Time) error {
-	statement := "UPDATE crontab SET " +
-		"`previous`=`next`, " +
-		"`next`=?, " +
-		"`lastupdated`=utc_timestamp() " +
-		"WHERE idcrontab = ?"
-
+func (m ScheduleManager) StartJobAndUpdateCron(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare(statement)
+	tx, err := db.Begin()
 	if err != nil {
-		return err
+		return 0, err
+	}
+	defer tx.Rollback()
+
+	scheduleJobStmt, err := tx.Prepare("INSERT INTO `job`(arn, payload, idschedule, `when`) " +
+		"SELECT arn, payload, ?, utc_timestamp() FROM schedule;")
+	if err != nil {
+		return 0, nil
+	}
+	r, err := scheduleJobStmt.Exec(scheduleID)
+	if err != nil {
+		return 0, err
 	}
 
-	_, err = stmt.Exec(newNext, crontabID)
-	return err
+	updateCrontabStmt, err := tx.Prepare("UPDATE crontab SET " +
+		"`previous`=`next`, " +
+		"`next`=?, " +
+		"`lastupdated`=utc_timestamp() " +
+		"WHERE idcrontab = ?")
+	if err != nil {
+		return 0, err
+	}
+
+	_, err = updateCrontabStmt.Exec(newNext, crontabID)
+	if err != nil {
+		return 0, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return 0, err
+	}
+
+	return r.LastInsertId()
 }
