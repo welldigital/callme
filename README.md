@@ -1,6 +1,6 @@
 # Call Me
 
-Schedule SNS notifications in the future or recurring with database backed persistence.
+Schedule SNS notifications to be sent on a repeating schedule, or in the future with database backed persistence.
 
 # Features
  
