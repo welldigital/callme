@@ -57,10 +57,7 @@ func main() {
 
 	logger.Infof("cmd.main: starting up scheduler and job worker")
 
-	now := func() time.Time { return time.Now().UTC() }
-
-	scheduleWorkerFunction := scheduleworker.NewScheduleWorker(now,
-		lm.Acquire,
+	scheduleWorkerFunction := scheduleworker.NewScheduleWorker(lm.Acquire,
 		nodeName,
 		lm.Rescind,
 		sm.GetSchedules,
@@ -72,8 +69,7 @@ func main() {
 		waiter <- true
 	}()
 
-	jobWorkerFunction := jobworker.NewJobWorker(now,
-		lm.Acquire,
+	jobWorkerFunction := jobworker.NewJobWorker(lm.Acquire,
 		nodeName,
 		lm.Rescind,
 		jm.GetJob,

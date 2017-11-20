@@ -75,7 +75,7 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 		// Grab a lease and pull the first job.
 		// Acquire a lease.
 		lm := NewLeaseManager(dsn)
-		leaseID, _, ok, err := lm.Acquire(time.Now().UTC(), "job", "jobmanager_test")
+		leaseID, _, ok, err := lm.Acquire("job", "jobmanager_test")
 		if err != nil {
 			t.Fatalf("could not acquire lease with error: %v", err)
 		}
@@ -84,7 +84,7 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 		}
 
 		// Use the lease to pull the job.
-		actualPtr, err := jm.GetJob(leaseID, time.Now().UTC())
+		actualPtr, err := jm.GetJob(leaseID)
 		if err != nil {
 			t.Fatalf("error getting job with valid lease: %v", err)
 		}
@@ -95,7 +95,7 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 		AssertJob(t, "get job 1", job1, actualJob1)
 
 		// Complete the job.
-		err = jm.CompleteJob(leaseID, job1.JobID, time.Now().UTC(), "response", errors.New("just a test"))
+		err = jm.CompleteJob(leaseID, job1.JobID, "response", errors.New("just a test"))
 		if err != nil {
 			t.Errorf("got an error completing the job: %v", err)
 		}
@@ -110,7 +110,7 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 		}
 
 		// Pull the second job.
-		actualPtr, err = jm.GetJob(leaseID, time.Now().UTC())
+		actualPtr, err = jm.GetJob(leaseID)
 		if err != nil {
 			t.Fatalf("error getting job (after completion): %v", err)
 		}

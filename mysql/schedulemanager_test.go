@@ -70,7 +70,7 @@ func TestScheduleManager(t *testing.T) {
 		// Update crontab to be checked again in the future.
 		newPrevious := actual.Crontab.Previous
 		newNext := time.Now().Add(time.Hour * 24)
-		err = sm.UpdateCron(actual.Crontab.CrontabID, newPrevious, newNext, newNext)
+		err = sm.UpdateCron(actual.Crontab.CrontabID, newPrevious, newNext)
 		if err != nil {
 			t.Errorf("failed to update the cron with error: %v", err)
 		}

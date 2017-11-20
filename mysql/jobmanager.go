@@ -77,7 +77,7 @@ func (m JobManager) GetAvailableJobCount() (int, error) {
 }
 
 // GetJob retrieves a job that's ready to run from the queue.
-func (m JobManager) GetJob(leaseID int64, now time.Time) (*data.Job, error) {
+func (m JobManager) GetJob(leaseID int64) (*data.Job, error) {
 	var j *data.Job
 
 	db, err := sql.Open("mysql", m.ConnectionString)
@@ -97,7 +97,7 @@ func (m JobManager) GetJob(leaseID int64, now time.Time) (*data.Job, error) {
 		"INNER JOIN lease l ON l.idlease = ? AND l.`type`='job' "+
 		"WHERE "+
 		"jr.idjobid IS NULL AND "+
-		"l.`until` > ?", leaseID, now)
+		"l.`until` >= utc_timestamp()", leaseID)
 
 	if err != nil {
 		return j, err
@@ -150,11 +150,11 @@ func convertMySQLBoolean(s string) bool {
 }
 
 // CompleteJob marks a job as complete.
-func (m JobManager) CompleteJob(leaseID, jobID int64, now time.Time, resp string, jobError error) error {
+func (m JobManager) CompleteJob(leaseID, jobID int64, resp string, jobError error) error {
 	statement := "INSERT INTO `jobresponse` " +
 		"(`idlease`, `idjobid`, `time`, `response`, `iserror`, `error`) " +
 		"VALUES " +
-		"(?, ?, ?, ?, ?, ?);"
+		"(?, ?, utc_timestamp(), ?, ?, ?);"
 
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
@@ -171,6 +171,6 @@ func (m JobManager) CompleteJob(leaseID, jobID int64, now time.Time, resp string
 	if jobError != nil {
 		isError = true
 	}
-	_, err = stmt.Exec(leaseID, jobID, now, resp, isError, jobError.Error())
+	_, err = stmt.Exec(leaseID, jobID, resp, isError, jobError.Error())
 	return err
 }

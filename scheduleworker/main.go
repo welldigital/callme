@@ -13,28 +13,25 @@ import (
 const leaseName = "schedule"
 
 // NewScheduleWorker creates a worker for the repetitive.Work function which processes schedules and queues any required jobs.
-func NewScheduleWorker(now func() time.Time,
-	leaseAcquirer data.LeaseAcquirer,
+func NewScheduleWorker(leaseAcquirer data.LeaseAcquirer,
 	lockedBy string,
 	leaseRescinder data.LeaseRescinder,
 	scheduleGetter data.ScheduleGetter,
 	jobStarter data.JobStarter,
 	cronUpdater data.CronUpdater) repetitive.Worker {
 	return func() (workDone bool, err error) {
-		return findAndExecuteWork(now, leaseAcquirer, lockedBy, leaseRescinder, scheduleGetter, jobStarter, cronUpdater)
+		return findAndExecuteWork(leaseAcquirer, lockedBy, leaseRescinder, scheduleGetter, jobStarter, cronUpdater)
 	}
 }
 
-func findAndExecuteWork(clock func() time.Time,
-	leaseAcquirer data.LeaseAcquirer,
+func findAndExecuteWork(leaseAcquirer data.LeaseAcquirer,
 	lockedBy string,
 	leaseRescinder data.LeaseRescinder,
 	scheduleGetter data.ScheduleGetter,
 	jobStarter data.JobStarter,
 	cronUpdater data.CronUpdater,
 ) (workDone bool, err error) {
-	now := clock()
-	leaseID, until, ok, err := leaseAcquirer(now, leaseName, lockedBy)
+	leaseID, until, ok, err := leaseAcquirer(leaseName, lockedBy)
 	if err != nil {
 		logger.Errorf("scheduleworker: failed to acquire lease with error: %v", err)
 		return
@@ -44,10 +41,10 @@ func findAndExecuteWork(clock func() time.Time,
 		return
 	}
 	logger.Infof("scheduleworker: got lease %v on %v until %v", leaseID, leaseName, until)
-	defer leaseRescinder(leaseID, now)
+	defer leaseRescinder(leaseID)
 
 	// See if there's some work to do.
-	scheduleCrontabs, err := scheduleGetter(now)
+	scheduleCrontabs, err := scheduleGetter()
 	if err != nil {
 		logger.Errorf("scheduleworker: failed to get schedules with error: %v", err)
 		return
@@ -55,6 +52,7 @@ func findAndExecuteWork(clock func() time.Time,
 
 	logger.Infof("scheduleworker: processing %v crontabs", len(scheduleCrontabs))
 
+	now := time.Now().UTC()
 	for _, sc := range scheduleCrontabs {
 		if !needsUpdating(sc.Crontab, now) {
 			logger.WithCrontab(sc.Crontab).Debugf("scheduleworker: skipping crontab: it has not yet expired")
@@ -78,8 +76,7 @@ func findAndExecuteWork(clock func() time.Time,
 		logger.WithCrontab(sc.Crontab).Infof("sceduler.Process: updating crontab to run again in the future")
 		newPrevious := sc.Crontab.Next
 		newNext := c.Next(sc.Crontab.Next)
-		newLastUpdated := now
-		err = cronUpdater(sc.Crontab.CrontabID, newPrevious, newNext, newLastUpdated)
+		err = cronUpdater(sc.Crontab.CrontabID, newPrevious, newNext)
 		if err != nil {
 			logger.WithCrontab(sc.Crontab).Errorf("scheduleworker: failed to update cron: %v", err)
 		}

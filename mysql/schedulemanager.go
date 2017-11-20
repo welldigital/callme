@@ -160,11 +160,11 @@ func (m ScheduleManager) GetSchedules() ([]data.ScheduleCrontab, error) {
 
 // UpdateCron is a cron updater which updates a Crontab record to mark it processed.
 // All dates should be UTC.
-func (m ScheduleManager) UpdateCron(crontabID int64, newPrevious, newNext, newLastUpdated time.Time) error {
+func (m ScheduleManager) UpdateCron(crontabID int64, newPrevious, newNext time.Time) error {
 	statement := "UPDATE crontab SET " +
-		"`previous`=?, " +
+		"`previous`=`next`, " +
 		"`next`=?, " +
-		"`lastupdated`=? " +
+		"`lastupdated`=utc_timestamp() " +
 		"WHERE idcrontab = ?"
 
 	db, err := sql.Open("mysql", m.ConnectionString)
@@ -178,6 +178,6 @@ func (m ScheduleManager) UpdateCron(crontabID int64, newPrevious, newNext, newLa
 		return err
 	}
 
-	_, err = stmt.Exec(newPrevious, newNext, newLastUpdated, crontabID)
+	_, err = stmt.Exec(newNext, crontabID)
 	return err
 }

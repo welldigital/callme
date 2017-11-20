@@ -10,22 +10,19 @@ import (
 
 const nodeName = "testnode"
 
-var n = time.Now().UTC()
-var now = func() time.Time { return n }
-
 func TestThatNoWorkIsDoneIfALeaseIsNotAcquired(t *testing.T) {
 	// Don't acquire a lease, because one is in use.
 	actual := Values{}
-	leaseAcquirer := func(now time.Time, leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
+	leaseAcquirer := func(leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
 		return 0, time.Time{}, false, nil
 	}
 
-	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
+	leaseRescinder := func(leaseID int64) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
 
-	jobGetter := func(leaseID int64, now time.Time) (*data.Job, error) {
+	jobGetter := func(leaseID int64) (*data.Job, error) {
 		actual.JobRetrieved = true
 		return nil, nil
 	}
@@ -35,12 +32,12 @@ func TestThatNoWorkIsDoneIfALeaseIsNotAcquired(t *testing.T) {
 		return `{ "response": "ok" }`, nil
 	}
 
-	jobCompleter := func(leaseID, jobID int64, now time.Time, resp string, err error) error {
+	jobCompleter := func(leaseID, jobID int64, resp string, err error) error {
 		actual.JobCompleted = true
 		return nil
 	}
 
-	w := NewJobWorker(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
+	w := NewJobWorker(leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -60,16 +57,16 @@ func TestThatNoWorkIsDoneIfALeaseIsNotAcquired(t *testing.T) {
 
 func TestThatErrorsAcquiringTheLeaseQuitWork(t *testing.T) {
 	actual := Values{}
-	leaseAcquirer := func(now time.Time, leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
+	leaseAcquirer := func(leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
 		return 0, time.Time{}, false, errors.New("something bad happened")
 	}
 
-	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
+	leaseRescinder := func(leaseID int64) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
 
-	jobGetter := func(leaseID int64, now time.Time) (*data.Job, error) {
+	jobGetter := func(leaseID int64) (*data.Job, error) {
 		actual.JobRetrieved = true
 		return nil, nil
 	}
@@ -79,12 +76,12 @@ func TestThatErrorsAcquiringTheLeaseQuitWork(t *testing.T) {
 		return `{ "response": "ok" }`, nil
 	}
 
-	jobCompleter := func(leaseID, jobID int64, now time.Time, resp string, err error) error {
+	jobCompleter := func(leaseID, jobID int64, resp string, err error) error {
 		actual.JobCompleted = true
 		return nil
 	}
 
-	w := NewJobWorker(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
+	w := NewJobWorker(leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -104,16 +101,16 @@ func TestThatErrorsAcquiringTheLeaseQuitWork(t *testing.T) {
 
 func TestThatAcquiringALeaseResultsInTryingToGetAJob(t *testing.T) {
 	actual := Values{}
-	leaseAcquirer := func(now time.Time, leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
+	leaseAcquirer := func(leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
+	leaseRescinder := func(leaseID int64) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
 
-	jobGetter := func(leaseID int64, now time.Time) (*data.Job, error) {
+	jobGetter := func(leaseID int64) (*data.Job, error) {
 		actual.JobRetrieved = true
 		return nil, nil
 	}
@@ -123,12 +120,12 @@ func TestThatAcquiringALeaseResultsInTryingToGetAJob(t *testing.T) {
 		return `{ "response": "ok" }`, nil
 	}
 
-	jobCompleter := func(leaseID, jobID int64, now time.Time, resp string, err error) error {
+	jobCompleter := func(leaseID, jobID int64, resp string, err error) error {
 		actual.JobCompleted = true
 		return nil
 	}
 
-	w := NewJobWorker(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
+	w := NewJobWorker(leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -148,16 +145,16 @@ func TestThatAcquiringALeaseResultsInTryingToGetAJob(t *testing.T) {
 
 func TestThatGettingAJobResultsInWorkBeingExecuted(t *testing.T) {
 	actual := Values{}
-	leaseAcquirer := func(now time.Time, leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
+	leaseAcquirer := func(leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
+	leaseRescinder := func(leaseID int64) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
 
-	jobGetter := func(leaseID int64, now time.Time) (*data.Job, error) {
+	jobGetter := func(leaseID int64) (*data.Job, error) {
 		actual.JobRetrieved = true
 		scheduleID := int64(1)
 
@@ -166,7 +163,7 @@ func TestThatGettingAJobResultsInWorkBeingExecuted(t *testing.T) {
 			ARN:        "arn",
 			Payload:    "payload",
 			ScheduleID: &scheduleID,
-			When:       now,
+			When:       time.Now().UTC(),
 		}, nil
 	}
 
@@ -175,12 +172,12 @@ func TestThatGettingAJobResultsInWorkBeingExecuted(t *testing.T) {
 		return `{ "response": "ok" }`, nil
 	}
 
-	jobCompleter := func(leaseID, jobID int64, now time.Time, resp string, err error) error {
+	jobCompleter := func(leaseID, jobID int64, resp string, err error) error {
 		actual.JobCompleted = true
 		return nil
 	}
 
-	w := NewJobWorker(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
+	w := NewJobWorker(leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -200,16 +197,16 @@ func TestThatGettingAJobResultsInWorkBeingExecuted(t *testing.T) {
 
 func TestThatErrorsGettingAJobResultsInNoWorkBeingExecuted(t *testing.T) {
 	actual := Values{}
-	leaseAcquirer := func(now time.Time, leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
+	leaseAcquirer := func(leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
+	leaseRescinder := func(leaseID int64) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
 
-	jobGetter := func(leaseID int64, now time.Time) (*data.Job, error) {
+	jobGetter := func(leaseID int64) (*data.Job, error) {
 		actual.JobRetrieved = true
 		return nil, errors.New("failed to get job")
 	}
@@ -219,12 +216,12 @@ func TestThatErrorsGettingAJobResultsInNoWorkBeingExecuted(t *testing.T) {
 		return `{ "response": "ok" }`, nil
 	}
 
-	jobCompleter := func(leaseID, jobID int64, now time.Time, resp string, err error) error {
+	jobCompleter := func(leaseID, jobID int64, resp string, err error) error {
 		actual.JobCompleted = true
 		return nil
 	}
 
-	w := NewJobWorker(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
+	w := NewJobWorker(leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -244,16 +241,16 @@ func TestThatErrorsGettingAJobResultsInNoWorkBeingExecuted(t *testing.T) {
 
 func TestThatWhenJobsAndCompletionsFailTheyGetRetried(t *testing.T) {
 	actual := Values{}
-	leaseAcquirer := func(now time.Time, leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
+	leaseAcquirer := func(leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
+	leaseRescinder := func(leaseID int64) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
 
-	jobGetter := func(leaseID int64, now time.Time) (*data.Job, error) {
+	jobGetter := func(leaseID int64) (*data.Job, error) {
 		actual.JobRetrieved = true
 		scheduleID := int64(1)
 
@@ -262,7 +259,7 @@ func TestThatWhenJobsAndCompletionsFailTheyGetRetried(t *testing.T) {
 			ARN:        "arn",
 			Payload:    "payload",
 			ScheduleID: &scheduleID,
-			When:       now,
+			When:       time.Now().UTC(),
 		}, nil
 	}
 
@@ -277,7 +274,7 @@ func TestThatWhenJobsAndCompletionsFailTheyGetRetried(t *testing.T) {
 	}
 
 	completions := 0
-	jobCompleter := func(leaseID, jobID int64, now time.Time, resp string, err error) error {
+	jobCompleter := func(leaseID, jobID int64, resp string, err error) error {
 		actual.JobCompleted = true
 		completions++
 		if completions == 1 {
@@ -286,7 +283,7 @@ func TestThatWhenJobsAndCompletionsFailTheyGetRetried(t *testing.T) {
 		return nil
 	}
 
-	w := NewJobWorker(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
+	w := NewJobWorker(leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -312,16 +309,16 @@ func TestThatWhenJobsAndCompletionsFailTheyGetRetried(t *testing.T) {
 
 func TestThatJobExecutionRetriesAreTimeLimited(t *testing.T) {
 	actual := Values{}
-	leaseAcquirer := func(now time.Time, leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
+	leaseAcquirer := func(leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
+	leaseRescinder := func(leaseID int64) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
 
-	jobGetter := func(leaseID int64, now time.Time) (*data.Job, error) {
+	jobGetter := func(leaseID int64) (*data.Job, error) {
 		actual.JobRetrieved = true
 		scheduleID := int64(1)
 
@@ -330,7 +327,7 @@ func TestThatJobExecutionRetriesAreTimeLimited(t *testing.T) {
 			ARN:        "arn",
 			Payload:    "payload",
 			ScheduleID: &scheduleID,
-			When:       now,
+			When:       time.Now().UTC(),
 		}, nil
 	}
 
@@ -341,14 +338,14 @@ func TestThatJobExecutionRetriesAreTimeLimited(t *testing.T) {
 		return "", errors.New("failed for no reason whatsoever")
 	}
 
-	jobCompleter := func(leaseID, jobID int64, now time.Time, resp string, err error) error {
+	jobCompleter := func(leaseID, jobID int64, resp string, err error) error {
 		actual.JobCompleted = true
 		return nil
 	}
 
 	var err error
 	timeout := time.Second * 1
-	actual.WorkDone, err = findAndExecuteWork(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter, timeout)
+	actual.WorkDone, err = findAndExecuteWork(leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter, timeout)
 	actual.ErrorOccurred = err != nil
 
 	expected := Values{
@@ -373,16 +370,16 @@ func TestThatJobExecutionRetriesAreTimeLimited(t *testing.T) {
 
 func TestThatMarkCompleteRetriesAreTimeLimited(t *testing.T) {
 	actual := Values{}
-	leaseAcquirer := func(now time.Time, leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
+	leaseAcquirer := func(leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
+	leaseRescinder := func(leaseID int64) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
 
-	jobGetter := func(leaseID int64, now time.Time) (*data.Job, error) {
+	jobGetter := func(leaseID int64) (*data.Job, error) {
 		actual.JobRetrieved = true
 		scheduleID := int64(1)
 
@@ -391,7 +388,7 @@ func TestThatMarkCompleteRetriesAreTimeLimited(t *testing.T) {
 			ARN:        "arn",
 			Payload:    "payload",
 			ScheduleID: &scheduleID,
-			When:       now,
+			When:       time.Now().UTC(),
 		}, nil
 	}
 
@@ -401,7 +398,7 @@ func TestThatMarkCompleteRetriesAreTimeLimited(t *testing.T) {
 	}
 
 	completions := 0
-	jobCompleter := func(leaseID, jobID int64, now time.Time, resp string, err error) error {
+	jobCompleter := func(leaseID, jobID int64, resp string, err error) error {
 		actual.JobCompleted = true
 		completions++
 		return errors.New("failed for no reason whatsoever")
@@ -409,7 +406,7 @@ func TestThatMarkCompleteRetriesAreTimeLimited(t *testing.T) {
 
 	var err error
 	timeout := time.Second * 1
-	actual.WorkDone, err = findAndExecuteWork(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter, timeout)
+	actual.WorkDone, err = findAndExecuteWork(leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter, timeout)
 	actual.ErrorOccurred = err != nil
 
 	expected := Values{
@@ -434,16 +431,16 @@ func TestThatMarkCompleteRetriesAreTimeLimited(t *testing.T) {
 
 func TestThatBothExecutionAndCompletionErrorsAreTracked(t *testing.T) {
 	actual := Values{}
-	leaseAcquirer := func(now time.Time, leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
+	leaseAcquirer := func(leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
 		return 1, time.Time{}, true, nil
 	}
 
-	leaseRescinder := func(leaseID int64, rescindAt time.Time) (err error) {
+	leaseRescinder := func(leaseID int64) (err error) {
 		actual.LeaseRescinded = true
 		return nil
 	}
 
-	jobGetter := func(leaseID int64, now time.Time) (*data.Job, error) {
+	jobGetter := func(leaseID int64) (*data.Job, error) {
 		actual.JobRetrieved = true
 		scheduleID := int64(1)
 
@@ -452,7 +449,7 @@ func TestThatBothExecutionAndCompletionErrorsAreTracked(t *testing.T) {
 			ARN:        "arn",
 			Payload:    "payload",
 			ScheduleID: &scheduleID,
-			When:       now,
+			When:       time.Now().UTC(),
 		}, nil
 	}
 
@@ -461,14 +458,14 @@ func TestThatBothExecutionAndCompletionErrorsAreTracked(t *testing.T) {
 		return "", errors.New("execution error")
 	}
 
-	jobCompleter := func(leaseID, jobID int64, now time.Time, resp string, err error) error {
+	jobCompleter := func(leaseID, jobID int64, resp string, err error) error {
 		actual.JobCompleted = true
 		return errors.New("completion error")
 	}
 
 	var err error
 	timeout := time.Millisecond * 100
-	actual.WorkDone, err = findAndExecuteWork(now, leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter, timeout)
+	actual.WorkDone, err = findAndExecuteWork(leaseAcquirer, nodeName, leaseRescinder, jobGetter, executor, jobCompleter, timeout)
 	actual.ErrorOccurred = err != nil
 
 	expected := Values{
