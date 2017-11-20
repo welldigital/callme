@@ -32,7 +32,7 @@ func (m ScheduleManager) Create(from time.Time, arn string, payload string, cron
 		Created:         time.Now().UTC(),
 		From:            from,
 		Active:          true,
-		DeactivatedDate: nil,
+		DeactivatedDate: time.Time{},
 	}
 
 	db, err := sql.Open("mysql", m.ConnectionString)
@@ -103,7 +103,7 @@ func (m ScheduleManager) Deactivate(scheduleID int64) error {
 }
 
 // GetSchedules is a ScheduleGetter which gets all schedules where Next is in the past, in order to schedule jobs.
-func (m ScheduleManager) GetSchedules(now time.Time) ([]data.ScheduleCrontab, error) {
+func (m ScheduleManager) GetSchedules() ([]data.ScheduleCrontab, error) {
 	sc := make([]data.ScheduleCrontab, 0)
 
 	db, err := sql.Open("mysql", m.ConnectionString)
@@ -117,16 +117,17 @@ func (m ScheduleManager) GetSchedules(now time.Time) ([]data.ScheduleCrontab, er
 		"FROM " +
 		"`schedule` sc " +
 		"INNER JOIN `crontab` ct ON sc.idschedule = ct.idschedule " +
-		"WHERE ct.next < ?"
+		"WHERE ct.next < utc_timestamp()"
 
-	rows, err := db.Query(query, now)
+	rows, err := db.Query(query)
 	if err != nil {
 		return sc, err
 	}
 
+	var isActiveStr string
+	var deactivatedDate *time.Time
 	for rows.Next() {
 		r := data.ScheduleCrontab{}
-		// previous`, `next`, `lastupdated` " +
 		err = rows.Scan(&r.Schedule.ScheduleID,
 			&r.Schedule.ExternalID,
 			&r.Schedule.By,
@@ -134,14 +135,19 @@ func (m ScheduleManager) GetSchedules(now time.Time) ([]data.ScheduleCrontab, er
 			&r.Schedule.Payload,
 			&r.Schedule.Created,
 			&r.Schedule.From,
-			&r.Schedule.Active,
-			&r.Schedule.DeactivatedDate,
+			&isActiveStr,
+			&deactivatedDate,
 			&r.Crontab.CrontabID,
 			&r.Crontab.ScheduleID,
 			&r.Crontab.Crontab,
 			&r.Crontab.Previous,
 			&r.Crontab.Next,
 			&r.Crontab.LastUpdated)
+
+		r.Schedule.Active = convertMySQLBoolean(isActiveStr)
+		if deactivatedDate != nil {
+			r.Schedule.DeactivatedDate = *deactivatedDate
+		}
 
 		if err != nil {
 			return sc, err
@@ -152,12 +158,13 @@ func (m ScheduleManager) GetSchedules(now time.Time) ([]data.ScheduleCrontab, er
 	return sc, err
 }
 
-// UpdateCron is a cron updater which updates a Crontab record so that it's not included in future updates.
+// UpdateCron is a cron updater which updates a Crontab record to mark it processed.
+// All dates should be UTC.
 func (m ScheduleManager) UpdateCron(crontabID int64, newPrevious, newNext, newLastUpdated time.Time) error {
 	statement := "UPDATE crontab SET " +
-		"(`previous`, `next`, `lastupdated`) " +
-		"VALUES " +
-		"(?, ?, ?) " +
+		"`previous`=?, " +
+		"`next`=?, " +
+		"`lastupdated`=? " +
 		"WHERE idcrontab = ?"
 
 	db, err := sql.Open("mysql", m.ConnectionString)

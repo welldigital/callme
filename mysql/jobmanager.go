@@ -50,7 +50,7 @@ func (m JobManager) StartJob(when time.Time, arn string, payload string, schedul
 	return j, err
 }
 
-// GetAvailableJobCount returns the number of jobs present in the DB to process.
+// GetAvailableJobCount returns the number of jobs present in the DB to process, i.e. where they have no job response.
 func (m JobManager) GetAvailableJobCount() (int, error) {
 	count := 0
 

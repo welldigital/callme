@@ -23,10 +23,7 @@ type Schedule struct {
 	// Active stores whether the schedule is active or not.
 	Active bool
 	// DeactivatedDate returns the date that the schedule was disabled.
-	DeactivatedDate *time.Time
-	// Crontab is filled with data relating to the schedule. There can be multiple crontabs per
-	// schedule, e.g. one for every 5th day of the month and one for every 20th day of the month.
-	Crontabs []Crontab
+	DeactivatedDate time.Time
 }
 
 // Crontab contains the schedule data and when it was last executed.

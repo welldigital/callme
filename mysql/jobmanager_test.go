@@ -32,7 +32,7 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 		if err != nil {
 			t.Fatalf("without schedule: error starting job: %v", err)
 		}
-		Assert(t, "without schedule", job1, actualJob1)
+		AssertJob(t, "without schedule", job1, actualJob1)
 
 		// Start job with valid schedule.
 		// Create a schedule.
@@ -54,13 +54,22 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 		if err != nil {
 			t.Fatalf("with schedule: error starting job: %v", err)
 		}
-		Assert(t, "with schedule", job2, actualJob2)
+		AssertJob(t, "with schedule", job2, actualJob2)
 
 		// Attemp to start a job with invalid schedule.
 		invalidSchedule := int64(-1)
 		_, err = jm.StartJob(when, "testarn", "testpayload", &invalidSchedule)
 		if err == nil {
 			t.Errorf("invalid schedule: expected error, because it's not possible to start a job associated with an invalid schedule ID")
+		}
+
+		// Check that two jobs are available.
+		jobCount, err := jm.GetAvailableJobCount()
+		if err != nil {
+			t.Errorf("failed to get available job count with error: %v", err)
+		}
+		if jobCount != 2 {
+			t.Errorf("expected two jobs to be available, but got %v", jobCount)
 		}
 
 		// Grab a lease and pull the first job.
@@ -83,12 +92,21 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 			t.Fatalf("expected to get a job, but didn't")
 		}
 		actualJob1 = *actualPtr
-		Assert(t, "get job 1", job1, actualJob1)
+		AssertJob(t, "get job 1", job1, actualJob1)
 
 		// Complete the job.
 		err = jm.CompleteJob(leaseID, job1.JobID, time.Now().UTC(), "response", errors.New("just a test"))
 		if err != nil {
 			t.Errorf("got an error completing the job: %v", err)
+		}
+
+		// Check that only one job is now available.
+		jobCount, err = jm.GetAvailableJobCount()
+		if err != nil {
+			t.Errorf("failed to get available job count with error: %v", err)
+		}
+		if jobCount != 1 {
+			t.Errorf("expected one job to be available, but got %v", jobCount)
 		}
 
 		// Pull the second job.
@@ -100,7 +118,7 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 			t.Errorf("job 2 should be available, but no job was retrieved")
 		}
 		actualJob2 = *actualPtr
-		Assert(t, "get job 2", job1, actualJob1)
+		AssertJob(t, "get job 2", job1, actualJob1)
 
 		// Check that it's possible to get the job response for ID 1, but not 2.
 		j1, r, jOK, rOK, err := jm.GetJobResponse(1)
@@ -114,7 +132,7 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 			t.Errorf("failed to get response 1 from database without throwing an error")
 		}
 		// Test that the job is correct.
-		Assert(t, "get job response 1", job1, j1)
+		AssertJob(t, "get job response 1", job1, j1)
 		if !r.IsError {
 			t.Errorf("for job response 1, expected IsError=true, but was false")
 		}
@@ -130,7 +148,7 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 	}
 }
 
-func Assert(t *testing.T, testName string, expected, actual data.Job) {
+func AssertJob(t *testing.T, testName string, expected, actual data.Job) {
 	if expected.JobID != actual.JobID {
 		t.Errorf("%v: expected JobID='%v', but was '%v'", testName, expected.JobID, actual.JobID)
 	}
