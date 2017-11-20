@@ -51,19 +51,16 @@ func findAndExecuteWork(leaseAcquirer data.LeaseAcquirer,
 	for _, sc := range scheduleCrontabs {
 		c, err := cron.Parse(sc.Crontab.Crontab)
 		if err != nil {
-			logger.WithCrontab(sc.Crontab).Errorf("scheduleworker: skipping crontab: failed to parse")
+			logger.WithCrontab(sc.Crontab).Errorf("scheduleworker: skipping crontab: failed to parse: '%v'", sc.Crontab.Crontab)
 			continue
 		}
 
 		// Schedule a job to run immediately and update the cronjob.
 		newNext := c.Next(sc.Crontab.Next)
 		jobID, err := scheduledJobStarter(sc.Crontab.CrontabID, sc.Schedule.ScheduleID, newNext)
-		if err != nil {
+		if err != nil || jobID == 0 {
 			logger.WithCrontab(sc.Crontab).Errorf("scheduleworker: failed to start job and update cron: %v", err)
 			continue
-		}
-		if jobID == 0 {
-			logger.WithCrontab(sc.Crontab).Error("scheduleworker: received a zero jobID when starting a job")
 		}
 	}
 	return

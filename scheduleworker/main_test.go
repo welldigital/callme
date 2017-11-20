@@ -244,6 +244,138 @@ func TestThatExpiredSchedulesStartNewJobs(t *testing.T) {
 	expected.Assert(t, actual)
 }
 
+func TestThatErrorsParsingCronStatementsDoNotPreventWork(t *testing.T) {
+	// Don't acquire a lease.
+	actual := Values{
+		CrontabsUpdated: make(map[int64]time.Time),
+	}
+	leaseAcquirer := func(leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
+		return 0, time.Time{}, true, nil
+	}
+
+	leaseRescinder := func(leaseID int64) (err error) {
+		actual.LeaseRescinded = true
+		return nil
+	}
+
+	now := time.Now().UTC()
+
+	scheduleGetter := func() ([]data.ScheduleCrontab, error) {
+		actual.SchedulesRetrieved = true
+		return []data.ScheduleCrontab{
+			{
+				Schedule: data.Schedule{
+					ScheduleID:      1,
+					Active:          true,
+					ARN:             "testarn",
+					By:              "scheduleworker.main_test",
+					Created:         time.Now().UTC(),
+					DeactivatedDate: time.Time{},
+					ExternalID:      "externalid",
+					From:            time.Now().Add(time.Hour * -1).UTC(),
+					Payload:         "testpayload",
+				},
+				Crontab: data.Crontab{
+					Crontab:     "absolute nonsense",
+					CrontabID:   1,
+					LastUpdated: now,
+					Next:        now,
+					Previous:    now.Add(-1 * time.Hour).UTC(),
+					ScheduleID:  1,
+				},
+			},
+		}, nil
+	}
+
+	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
+		actual.JobsStarted++
+		actual.CrontabsUpdated[crontabID] = newNext
+		return 1, nil
+	}
+
+	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, scheduledJobStarter)
+
+	var err error
+	actual.WorkDone, err = w()
+	actual.ErrorOccurred = err != nil
+
+	expected := Values{
+		WorkDone:           false,
+		LeaseRescinded:     true,
+		SchedulesRetrieved: true,
+		JobsStarted:        0,
+		CrontabsUpdated:    map[int64]time.Time{},
+		ErrorOccurred:      false,
+	}
+
+	expected.Assert(t, actual)
+}
+
+func TestThatErrorsStartingWorkDoNotBlock(t *testing.T) {
+	// Don't acquire a lease.
+	actual := Values{
+		CrontabsUpdated: make(map[int64]time.Time),
+	}
+	leaseAcquirer := func(leaseType string, by string) (leaseID int64, until time.Time, ok bool, err error) {
+		return 0, time.Time{}, true, nil
+	}
+
+	leaseRescinder := func(leaseID int64) (err error) {
+		actual.LeaseRescinded = true
+		return nil
+	}
+
+	now := time.Now().UTC()
+
+	scheduleGetter := func() ([]data.ScheduleCrontab, error) {
+		actual.SchedulesRetrieved = true
+		return []data.ScheduleCrontab{
+			{
+				Schedule: data.Schedule{
+					ScheduleID:      1,
+					Active:          true,
+					ARN:             "testarn",
+					By:              "scheduleworker.main_test",
+					Created:         time.Now().UTC(),
+					DeactivatedDate: time.Time{},
+					ExternalID:      "externalid",
+					From:            time.Now().Add(time.Hour * -1).UTC(),
+					Payload:         "testpayload",
+				},
+				Crontab: data.Crontab{
+					Crontab:     "0 * * * *", // once per hour
+					CrontabID:   1,
+					LastUpdated: now,
+					Next:        now,
+					Previous:    now.Add(-1 * time.Hour).UTC(),
+					ScheduleID:  1,
+				},
+			},
+		}, nil
+	}
+
+	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
+		return 0, errors.New("this is a failure")
+	}
+
+	w := NewScheduleWorker(leaseAcquirer, nodeName, leaseRescinder, scheduleGetter, scheduledJobStarter)
+
+	var err error
+	actual.WorkDone, err = w()
+	actual.ErrorOccurred = err != nil
+
+	expected := Values{
+		WorkDone:           false,
+		LeaseRescinded:     true,
+		SchedulesRetrieved: true,
+		JobsStarted:        0,
+		CrontabsUpdated:    map[int64]time.Time{},
+		ErrorOccurred:      false,
+	}
+
+	expected.Assert(t, actual)
+}
+
 type Values struct {
 	WorkDone           bool
 	LeaseRescinded     bool
