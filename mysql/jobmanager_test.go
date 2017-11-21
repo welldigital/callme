@@ -10,11 +10,11 @@ import (
 
 func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testing.T) {
 	if !testing.Short() {
-		dsn, dbName, err := createTestDatabase()
+		dsn, dbName, err := CreateTestDatabase()
 		if err != nil {
 			t.Errorf("failed to create test database with error: %v", err)
 		}
-		defer dropTestDatabase(dbName)
+		defer DropTestDatabase(dbName)
 
 		jm := NewJobManager(dsn)
 		when := time.Now().UTC().Add(-5 * time.Second).Truncate(time.Second)

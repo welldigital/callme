@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/a-h/callme/repetitive"
+	"github.com/a-h/callme/web"
 
 	"github.com/a-h/callme/jobworker"
 	"github.com/a-h/callme/scheduleworker"
@@ -37,6 +38,17 @@ func main() {
 	if connectionString == "" {
 		logger.Errorf("cmd.main: missing connection string")
 		os.Exit(-1)
+	}
+
+	var exectutor jobworker.Executor
+	switch os.Getenv("CALLME_MODE") {
+	case "web":
+		logger.Infof("cmd.main: using web execution mode")
+		exectutor = web.Execute
+	case "sns":
+	default:
+		logger.Infof("cmd.main: using SNS execution mode")
+		exectutor = sns.Execute
 	}
 
 	mm := mysql.NewMigrationManager(connectionString)
@@ -72,7 +84,7 @@ func main() {
 		nodeName,
 		lm.Rescind,
 		jm.GetJob,
-		sns.Execute,
+		exectutor,
 		jm.CompleteJob)
 
 	go func() {

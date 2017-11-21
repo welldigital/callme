@@ -171,6 +171,10 @@ func (m JobManager) CompleteJob(leaseID, jobID int64, resp string, jobError erro
 	if jobError != nil {
 		isError = true
 	}
-	_, err = stmt.Exec(leaseID, jobID, resp, isError, jobError.Error())
+	var errorString string
+	if jobError != nil {
+		errorString = jobError.Error()
+	}
+	_, err = stmt.Exec(leaseID, jobID, resp, isError, errorString)
 	return err
 }
