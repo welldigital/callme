@@ -177,26 +177,27 @@ func (m ScheduleManager) StartJobAndUpdateCron(leaseID, crontabID, scheduleID in
 
 	// Only allow insertion of the job if the lease is valid to prevent creating two of the same job.
 	scheduleJobStmt, err := tx.Prepare("INSERT INTO `job`(arn, payload, idschedule, `when`) " +
-		"SELECT s.arn, s.payload, s.idschedule, utc_timestamp() FROM schedule s" +
+		"SELECT s.arn, s.payload, s.idschedule, utc_timestamp() FROM schedule s " +
 		"INNER JOIN lease l ON l.idlease=? " +
 		"WHERE " +
 		"l.rescinded = 0 AND " +
-		"l.until < utc_timestamp() AND" +
+		"l.type = 'schedule' AND " +
+		"l.until >= utc_timestamp() AND " +
 		"s.idschedule=?;")
 	if err != nil {
-		return 0, nil
+		return
 	}
 	r, err := scheduleJobStmt.Exec(leaseID, scheduleID)
 	if err != nil {
-		return 0, err
+		return
 	}
 
-	rows, err := r.RowsAffected()
+	jobID, err = r.LastInsertId()
 	if err != nil {
-		return 0, err
+		return
 	}
-	if rows == 0 {
-		return 0, fmt.Errorf("failed to start job, no schedule was found or lease %v has expired", leaseID)
+	if jobID == 0 {
+		return jobID, fmt.Errorf("failed to start job, no schedule was found or lease %v has expired", leaseID)
 	}
 
 	updateCrontabStmt, err := tx.Prepare("UPDATE crontab SET " +
@@ -218,5 +219,5 @@ func (m ScheduleManager) StartJobAndUpdateCron(leaseID, crontabID, scheduleID in
 		return 0, err
 	}
 
-	return r.LastInsertId()
+	return
 }

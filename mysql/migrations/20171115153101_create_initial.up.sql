@@ -48,7 +48,7 @@ CREATE TABLE lease (
   rescinded BIT NOT NULL,
   PRIMARY KEY (`idlease`));
 
-CREATE INDEX idx_lease_type_until ON lease (`type`, `until`);
+CREATE INDEX idx_lease_type_until ON lease (`rescinded`, `type`, `until`);
 
 ALTER TABLE `job`
     ADD CONSTRAINT fk_job_idschedule 

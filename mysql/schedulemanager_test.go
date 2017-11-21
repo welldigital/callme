@@ -67,11 +67,30 @@ func TestScheduleManager(t *testing.T) {
 		AssertSchedule(t, "get schedule", expected.Schedule, actual.Schedule)
 		AssertCrontab(t, "get schedule", expected.Crontab, actual.Crontab)
 
+		// Try and use an invalid lease (0).
 		// Update crontab to be checked again in the future.
 		newNext := time.Now().Add(time.Hour * 24)
-		jobID, err := sm.StartJobAndUpdateCron(actual.Crontab.CrontabID, actual.Schedule.ScheduleID, newNext)
+		var leaseID int64
+		jobID, err := sm.StartJobAndUpdateCron(leaseID, actual.Crontab.CrontabID, actual.Schedule.ScheduleID, newNext)
+		if err == nil {
+			t.Errorf("expected error because it's not possible to start a job without a lease, but one was not received.")
+		}
+		if jobID != 0 {
+			t.Errorf("expected no job to be started with an invalid lease, but got %v", jobID)
+		}
+
+		// Use a valid lease.
+		lm := NewLeaseManager(dsn)
+		leaseID, _, ok, err := lm.Acquire("schedule", "schedulemanager_test")
 		if err != nil {
-			t.Errorf("failed to update the cron and start a new job with error: %v", err)
+			t.Fatalf("error getting lease: %v", err)
+		}
+		if !ok {
+			t.Fatal("was unable to acquire lease")
+		}
+		jobID, err = sm.StartJobAndUpdateCron(leaseID, actual.Crontab.CrontabID, actual.Schedule.ScheduleID, newNext)
+		if err != nil {
+			t.Errorf("unexpected error starting job with valid lease: %v", err)
 		}
 		if jobID == 0 {
 			t.Errorf("failed to start a new job while updating the cron, expected > 0, but got %v", jobID)

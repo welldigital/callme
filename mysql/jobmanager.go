@@ -95,8 +95,9 @@ func (m JobManager) GetJob(leaseID int64) (*data.Job, error) {
 		"INNER JOIN lease l ON l.idlease = ? AND l.`type`='job' "+
 		"WHERE "+
 		"jr.idjobid IS NULL AND "+
-		"l.`until` >= utc_timestamp() AND "+
-		"l.rescinded = 0", leaseID)
+		"l.rescinded = 0 AND "+
+		"l.type = 'job' AND "+
+		"l.until >= utc_timestamp();", leaseID)
 
 	if err != nil {
 		return j, err
@@ -119,8 +120,8 @@ func (m JobManager) GetJobResponse(jobID int64) (j data.Job, r data.JobResponse,
 	defer db.Close()
 
 	rows, err := db.Query("SELECT "+
-		"j.idjob, j.idschedule, j.`when`, j.arn, j.payload, "+
-		"jr.idjobresponse, jr.idlease, jr.idjobid, jr.`time`, jr.response, jr.iserror, jr.`error` "+
+		"j.idjob, j.idschedule, j.when, j.arn, j.payload, "+
+		"jr.idjobresponse, jr.idlease, jr.idjobid, jr.time, jr.response, jr.iserror, jr.error "+
 		"FROM `job` j "+
 		"LEFT JOIN jobresponse jr on jr.idjobid = j.idjob "+
 		"WHERE "+

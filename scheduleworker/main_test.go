@@ -27,7 +27,7 @@ func TestThatNoWorkIsDoneIfALeaseIsNotAcquired(t *testing.T) {
 		return []data.ScheduleCrontab{}, nil
 	}
 
-	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
+	scheduledJobStarter := func(leaseID, crontabID, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		actual.JobsStarted++
 		actual.CrontabsUpdated[crontabID] = newNext
 		return 1, nil
@@ -68,7 +68,7 @@ func TestThatErrorsAcquiringALeaseAreReturned(t *testing.T) {
 		return []data.ScheduleCrontab{}, nil
 	}
 
-	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
+	scheduledJobStarter := func(leaseID, crontabID, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		actual.JobsStarted++
 		actual.CrontabsUpdated[crontabID] = newNext
 		return 1, nil
@@ -109,7 +109,7 @@ func TestThatIfALeaseIsAcquiredSchedulesAreQueried(t *testing.T) {
 		return []data.ScheduleCrontab{}, nil
 	}
 
-	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
+	scheduledJobStarter := func(leaseID, crontabID, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		actual.JobsStarted++
 		actual.CrontabsUpdated[crontabID] = newNext
 		return 1, nil
@@ -150,7 +150,7 @@ func TestThatErrorsRetrievingSchedulesAreReturned(t *testing.T) {
 		return []data.ScheduleCrontab{}, errors.New("error getting schedules")
 	}
 
-	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
+	scheduledJobStarter := func(leaseID, crontabID, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		actual.JobsStarted++
 		actual.CrontabsUpdated[crontabID] = newNext
 		return 1, nil
@@ -217,7 +217,7 @@ func TestThatExpiredSchedulesStartNewJobs(t *testing.T) {
 		}, nil
 	}
 
-	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
+	scheduledJobStarter := func(leaseID, crontabID, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		actual.JobsStarted++
 		actual.CrontabsUpdated[crontabID] = newNext
 		return 1, nil
@@ -287,7 +287,7 @@ func TestThatErrorsParsingCronStatementsDoNotPreventWork(t *testing.T) {
 		}, nil
 	}
 
-	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
+	scheduledJobStarter := func(leaseID, crontabID, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		actual.JobsStarted++
 		actual.CrontabsUpdated[crontabID] = newNext
 		return 1, nil
@@ -354,7 +354,7 @@ func TestThatErrorsStartingWorkDoNotBlock(t *testing.T) {
 		}, nil
 	}
 
-	scheduledJobStarter := func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
+	scheduledJobStarter := func(leaseID, crontabID, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 		return 0, errors.New("this is a failure")
 	}
 
