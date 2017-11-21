@@ -61,6 +61,7 @@ func (m LeaseManager) Get(leaseID int64) (lease data.Lease, ok bool, err error) 
 	defer db.Close()
 
 	rows, err := db.Query("SELECT idlease, `type`, lockedby, `at`, `until`, rescinded FROM `lease` WHERE idlease = ? limit 1;", leaseID)
+	defer rows.Close()
 	if err != nil {
 		return
 	}

@@ -29,7 +29,7 @@ func main() {
 	defer mysql.DropTestDatabase(dbName)
 
 	// Start up a bunch of tasks in the test DB
-	tasksToCreate := 100
+	tasksToCreate := 1000
 
 	arn := "http://localhost:8080"
 	payload := `{ "test": true }`
@@ -105,6 +105,7 @@ func main() {
 
 var s *http.Server
 
+// NewCountHandler creates a HTTP handler which counts incoming requests.
 func NewCountHandler(expected int) *CountHandler {
 	ch := &CountHandler{
 		c:         make(chan bool, expected),
@@ -119,6 +120,7 @@ func NewCountHandler(expected int) *CountHandler {
 	return ch
 }
 
+// CountHandler provides a Web server to count incoming HTTP requests.
 type CountHandler struct {
 	// channel used to process counts sequentially
 	c chan bool
@@ -132,6 +134,7 @@ type CountHandler struct {
 	Expected int
 }
 
+// Shutdown shuts down the process.
 func (h *CountHandler) Shutdown() {
 	// stop the receiver
 	h.stopper <- true
@@ -139,6 +142,7 @@ func (h *CountHandler) Shutdown() {
 	h.Completed <- true
 }
 
+// Receive handles incrementing the number of received messages.
 func (h *CountHandler) Receive() {
 	go func() {
 		for {

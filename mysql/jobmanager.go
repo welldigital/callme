@@ -62,7 +62,7 @@ func (m JobManager) GetAvailableJobCount() (int, error) {
 		"LEFT JOIN `jobresponse` jr on jr.idjobid = j.idjob " +
 		"WHERE " +
 		"jr.idjobid IS NULL")
-
+	defer rows.Close()
 	if err != nil {
 		return count, err
 	}
@@ -70,7 +70,6 @@ func (m JobManager) GetAvailableJobCount() (int, error) {
 	for rows.Next() {
 		err = rows.Scan(&count)
 	}
-
 	return count, err
 }
 
@@ -98,7 +97,7 @@ func (m JobManager) GetJob(leaseID int64) (*data.Job, error) {
 		"l.rescinded = 0 AND "+
 		"l.type = 'job' AND "+
 		"l.until >= utc_timestamp();", leaseID)
-
+	defer rows.Close()
 	if err != nil {
 		return j, err
 	}
@@ -126,6 +125,7 @@ func (m JobManager) GetJobResponse(jobID int64) (j data.Job, r data.JobResponse,
 		"LEFT JOIN jobresponse jr on jr.idjobid = j.idjob "+
 		"WHERE "+
 		"jr.idjobid = ?", jobID)
+	defer rows.Close()
 
 	if err != nil {
 		return

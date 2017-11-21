@@ -122,6 +122,7 @@ func (m ScheduleManager) GetSchedules() ([]data.ScheduleCrontab, error) {
 		"sc.active = 1"
 
 	rows, err := db.Query(query)
+	defer rows.Close()
 	if err != nil {
 		return sc, err
 	}
