@@ -173,3 +173,15 @@ func AssertJob(t *testing.T, testName string, expected, actual data.Job) {
 		t.Errorf("%v: expected When='%v', but was '%v'", testName, expected.When, actual.When)
 	}
 }
+
+func TestMySQLBooleanConversion(t *testing.T) {
+	if convertMySQLBoolean("") != false {
+		t.Errorf("expected '' to equal false, but was true")
+	}
+	if convertMySQLBoolean(string([]byte{1})) != true {
+		t.Errorf("expected '1' to equal true, but was false")
+	}
+	if convertMySQLBoolean(string([]byte{0})) != false {
+		t.Errorf("expected '0' to equal false, but was true")
+	}
+}

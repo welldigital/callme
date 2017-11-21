@@ -57,7 +57,7 @@ func findAndExecuteWork(leaseAcquirer data.LeaseAcquirer,
 
 		// Schedule a job to run immediately and update the cronjob.
 		newNext := c.Next(sc.Crontab.Next)
-		jobID, err := scheduledJobStarter(sc.Crontab.CrontabID, sc.Schedule.ScheduleID, newNext)
+		jobID, err := scheduledJobStarter(leaseID, sc.Crontab.CrontabID, sc.Schedule.ScheduleID, newNext)
 		if err != nil || jobID == 0 {
 			logger.WithCrontab(sc.Crontab).Errorf("scheduleworker: failed to start job and update cron: %v", err)
 			continue

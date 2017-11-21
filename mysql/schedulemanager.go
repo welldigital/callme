@@ -2,12 +2,11 @@ package mysql
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/a-h/callme/data"
 	_ "github.com/go-sql-driver/mysql" // Requires MySQL
-
-	_ "github.com/mattes/migrate/source/file" // Be able to migrate from files.
 )
 
 // ScheduleManager provides features to manage schedules using MySQL.
@@ -22,7 +21,7 @@ func NewScheduleManager(connectionString string) ScheduleManager {
 	}
 }
 
-// Create creates a repeating schedule.
+// Create creates a repeating schedule. Doesn't require a lease, any process can do this.
 func (m ScheduleManager) Create(from time.Time, arn string, payload string, crontabs []string, externalID string, by string) (id int64, err error) {
 	s := data.Schedule{
 		ExternalID:      externalID,
@@ -96,13 +95,14 @@ func (m ScheduleManager) Deactivate(scheduleID int64) error {
 	}
 	defer db.Close()
 
-	_, err = db.Exec("UPDATE `schedule` SET active = 0 WHERE `schedule`.`idschedule` = ?",
+	_, err = db.Exec("UPDATE `schedule` SET active = 0, deactivateddate = utc_timestamp() WHERE `schedule`.`idschedule` = ?",
 		scheduleID)
 
 	return err
 }
 
 // GetSchedules is a ScheduleGetter which gets all schedules where Next is in the past, in order to schedule jobs.
+// While this operation doesn't need a lease, updating the records does.
 func (m ScheduleManager) GetSchedules() ([]data.ScheduleCrontab, error) {
 	sc := make([]data.ScheduleCrontab, 0)
 
@@ -117,7 +117,9 @@ func (m ScheduleManager) GetSchedules() ([]data.ScheduleCrontab, error) {
 		"FROM " +
 		"`schedule` sc " +
 		"INNER JOIN `crontab` ct ON sc.idschedule = ct.idschedule " +
-		"WHERE ct.next < utc_timestamp()"
+		"WHERE " +
+		"ct.next < utc_timestamp() AND " +
+		"sc.active = 1"
 
 	rows, err := db.Query(query)
 	if err != nil {
@@ -159,8 +161,8 @@ func (m ScheduleManager) GetSchedules() ([]data.ScheduleCrontab, error) {
 }
 
 // StartJobAndUpdateCron starts a new job based on the schedule record's arn and payload and updates the existing crontab to the new date.
-// All dates should be UTC.
-func (m ScheduleManager) StartJobAndUpdateCron(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error) {
+// It requires a valid lease, since without it, two processes could attempt to start jobs for the same cron schedule.
+func (m ScheduleManager) StartJobAndUpdateCron(leaseID, crontabID, scheduleID int64, newNext time.Time) (jobID int64, err error) {
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
 		return 0, err
@@ -173,14 +175,28 @@ func (m ScheduleManager) StartJobAndUpdateCron(crontabID int64, scheduleID int64
 	}
 	defer tx.Rollback()
 
+	// Only allow insertion of the job if the lease is valid to prevent creating two of the same job.
 	scheduleJobStmt, err := tx.Prepare("INSERT INTO `job`(arn, payload, idschedule, `when`) " +
-		"SELECT arn, payload, ?, utc_timestamp() FROM schedule;")
+		"SELECT s.arn, s.payload, s.idschedule, utc_timestamp() FROM schedule s" +
+		"INNER JOIN lease l ON l.idlease=? " +
+		"WHERE " +
+		"l.rescinded = 0 AND " +
+		"l.until < utc_timestamp() AND" +
+		"s.idschedule=?;")
 	if err != nil {
 		return 0, nil
 	}
-	r, err := scheduleJobStmt.Exec(scheduleID)
+	r, err := scheduleJobStmt.Exec(leaseID, scheduleID)
 	if err != nil {
 		return 0, err
+	}
+
+	rows, err := r.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	if rows == 0 {
+		return 0, fmt.Errorf("failed to start job, no schedule was found or lease %v has expired", leaseID)
 	}
 
 	updateCrontabStmt, err := tx.Prepare("UPDATE crontab SET " +

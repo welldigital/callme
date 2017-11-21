@@ -14,4 +14,4 @@ type ScheduleDeactivator func(scheduleID int64) error
 type ScheduleGetter func() ([]ScheduleCrontab, error)
 
 // ScheduledJobStarter starts a new job and updates a Crontab record in a transaction so that it's not included in future updates.
-type ScheduledJobStarter func(crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error)
+type ScheduledJobStarter func(leaseID int64, crontabID int64, scheduleID int64, newNext time.Time) (jobID int64, err error)

@@ -52,7 +52,7 @@ func TestLeaseManager(t *testing.T) {
 			t.Errorf("unexpected error while rescinding a lease: %v", err)
 		}
 
-		// Get the lease and check that it's now in the past.
+		// Get the lease and check that it's been rescinded.
 		lease, found, err = lm.Get(leaseID)
 		if err != nil {
 			t.Fatalf("failed to get the lease with err: %v", err)
@@ -63,9 +63,8 @@ func TestLeaseManager(t *testing.T) {
 		if lease.LockedBy != expectedLockedBy {
 			t.Errorf("expected LockedBy to be '%v', but got '%v'", expectedLockedBy, lease.LockedBy)
 		}
-		rightNow := time.Now().UTC()
-		if !lease.Until.Before(rightNow) {
-			t.Errorf("expected Until to be before '%v' but was '%v'", rightNow, lease.Until)
+		if !lease.Rescinded {
+			t.Error("expected the lease to be rescinded, but it wasn't")
 		}
 
 		// Now getting a new lease, should be fine.

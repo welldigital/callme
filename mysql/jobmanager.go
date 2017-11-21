@@ -6,8 +6,6 @@ import (
 
 	"github.com/a-h/callme/data"
 	_ "github.com/go-sql-driver/mysql" // Requires MySQL
-
-	_ "github.com/mattes/migrate/source/file" // Be able to migrate from files.
 )
 
 // JobManager provides features to manage jobs using MySQL.
@@ -97,7 +95,8 @@ func (m JobManager) GetJob(leaseID int64) (*data.Job, error) {
 		"INNER JOIN lease l ON l.idlease = ? AND l.`type`='job' "+
 		"WHERE "+
 		"jr.idjobid IS NULL AND "+
-		"l.`until` >= utc_timestamp()", leaseID)
+		"l.`until` >= utc_timestamp() AND "+
+		"l.rescinded = 0", leaseID)
 
 	if err != nil {
 		return j, err

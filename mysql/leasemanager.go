@@ -37,7 +37,7 @@ func (m LeaseManager) Acquire(leaseType string, lockedBy string) (leaseID int64,
 	until = time.Now().UTC().Add(time.Hour)
 
 	stmt, err := db.Prepare("INSERT INTO `lease`(`type`, lockedby, `at`, `until`) " +
-		"SELECT ?, ?, utc_timestamp(), ? FROM dual WHERE NOT EXISTS (SELECT idlease FROM `lease` WHERE `type` = ? HAVING MAX(`until`) >= utc_timestamp());")
+		"SELECT ?, ?, utc_timestamp(), ? FROM dual WHERE NOT EXISTS (SELECT idlease FROM `lease` WHERE `type` = ? AND rescinded = 0 HAVING MAX(`until`) >= utc_timestamp());")
 	if err != nil {
 		return
 	}
@@ -60,18 +60,20 @@ func (m LeaseManager) Get(leaseID int64) (lease data.Lease, ok bool, err error) 
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT idlease, `type`, lockedby, `at`, `until` FROM `lease` WHERE idlease = ? limit 1;", leaseID)
+	rows, err := db.Query("SELECT idlease, `type`, lockedby, `at`, `until`, rescinded FROM `lease` WHERE idlease = ? limit 1;", leaseID)
 	if err != nil {
 		return
 	}
 
+	var rescindedStr string
 	for rows.Next() {
-		err = rows.Scan(&lease.LeaseID, &lease.Type, &lease.LockedBy, &lease.At, &lease.Until)
+		err = rows.Scan(&lease.LeaseID, &lease.Type, &lease.LockedBy, &lease.At, &lease.Until, &rescindedStr)
 		if err != nil {
 			return
 		}
 		ok = true
 	}
+	lease.Rescinded = convertMySQLBoolean(rescindedStr)
 
 	return
 }
@@ -87,7 +89,7 @@ func (m LeaseManager) Rescind(leaseID int64) (err error) {
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare("UPDATE `lease` SET `until`=DATE_SUB(utc_timestamp(), INTERVAL 1 HOUR) WHERE idlease=?")
+	stmt, err := db.Prepare("UPDATE `lease` SET rescinded=1 WHERE idlease=?")
 	if err != nil {
 		return
 	}

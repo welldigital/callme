@@ -45,6 +45,7 @@ CREATE TABLE lease (
   lockedby VARCHAR(256) NOT NULL,
   `at` DATETIME(6) NOT NULL,
   `until` DATETIME(6) NOT NULL,
+  rescinded BIT NOT NULL,
   PRIMARY KEY (`idlease`));
 
 CREATE INDEX idx_lease_type_until ON lease (`type`, `until`);
