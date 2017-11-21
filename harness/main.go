@@ -14,11 +14,16 @@ import (
 	"github.com/a-h/callme/mysql"
 
 	"github.com/a-h/callme/logger"
+
+	"net/http/pprof"
 )
 
 func main() {
 	sigs := make(chan os.Signal)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	testJobs := false
+	testSchedule := true
 
 	// Create test database to work against
 	dsn, dbName, err := mysql.CreateTestDatabase()
@@ -33,25 +38,48 @@ func main() {
 
 	arn := "http://localhost:8080"
 	payload := `{ "test": true }`
-	jm := mysql.NewJobManager(dsn)
 
 	taskStart := time.Now().UTC()
-	for i := 0; i < tasksToCreate; i++ {
-		j, err := jm.StartJob(time.Now().UTC(), arn, payload, nil)
-		if err != nil {
-			logger.Errorf("failed to create test job i=%v, with error: %v", i, err)
-			return
+	if testJobs {
+		jm := mysql.NewJobManager(dsn)
+		for i := 0; i < tasksToCreate; i++ {
+			j, err := jm.StartJob(time.Now().UTC(), arn, payload, nil)
+			if err != nil {
+				logger.Errorf("failed to create test job i=%v, with error: %v", i, err)
+				return
+			}
+			logger.WithJob(j).Info("created")
 		}
-		logger.WithJob(j).Info("created")
 	}
 	taskDuration := time.Now().UTC().Sub(taskStart)
+
+	// Start a scheduled job.
+	if testSchedule {
+		sm := mysql.NewScheduleManager(dsn)
+		// Run every minute.
+		id, err := sm.Create(time.Now().UTC(), arn, payload, []string{"* * * * *"}, "externalid", "harness")
+		logger.Infof("created schedule %v", id)
+		if err != nil {
+			logger.Errorf("failed to create schedule with error: %v", err)
+		}
+	}
 
 	// Start a web server to count the work.
 	handler := NewCountHandler(tasksToCreate)
 
+	r := http.NewServeMux()
+	r.Handle("/", handler)
+
+	// Register pprof handlers
+	r.HandleFunc("/debug/pprof/", pprof.Index)
+	r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	r.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	r.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
 	s = &http.Server{
 		Addr:           ":8080",
-		Handler:        handler,
+		Handler:        r,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
