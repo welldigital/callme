@@ -8,7 +8,7 @@ import (
 	"github.com/a-h/callme/data"
 )
 
-func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testing.T) {
+func TestJobManager(t *testing.T) {
 	if !testing.Short() {
 		dsn, dbName, err := CreateTestDatabase()
 		if err != nil {
@@ -56,14 +56,20 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 		}
 		AssertJob(t, "with schedule", job2, actualJob2)
 
-		// Attemp to start a job with invalid schedule.
+		// Attempt to start a job with invalid schedule.
 		invalidSchedule := int64(-1)
 		_, err = jm.StartJob(when, "testarn", "testpayload", &invalidSchedule)
 		if err == nil {
 			t.Errorf("invalid schedule: expected error, because it's not possible to start a job associated with an invalid schedule ID")
 		}
 
-		// Check that two jobs are available.
+		// Start a job in the future.
+		_, err = jm.StartJob(time.Now().Add(time.Hour*24*365), "testarn", "testpayload", nil)
+		if err != nil {
+			t.Errorf("in the future: got error starting job in the future: %v", err)
+		}
+
+		// Check that only two jobs are available, one is happening next year.
 		jobCount, err := jm.GetAvailableJobCount()
 		if err != nil {
 			t.Errorf("failed to get available job count with error: %v", err)
@@ -72,30 +78,18 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 			t.Errorf("expected two jobs to be available, but got %v", jobCount)
 		}
 
-		// Grab a lease and pull the first job.
-		// Acquire a lease.
-		lm := NewLeaseManager(dsn)
-		leaseID, _, ok, err := lm.Acquire("job", "jobmanager_test")
+		// Pull a job from the database.
+		actualJob1, job1OK, err := jm.GetJob("jobmanager_test")
 		if err != nil {
-			t.Fatalf("could not acquire lease with error: %v", err)
+			t.Fatalf("error getting job1: %v", err)
 		}
-		if !ok {
-			t.Fatalf("could not acquire lease, even though there's only one process accessing the DB")
-		}
-
-		// Use the lease to pull the job.
-		actualPtr, err := jm.GetJob(leaseID)
-		if err != nil {
-			t.Fatalf("error getting job with valid lease: %v", err)
-		}
-		if actualPtr == nil {
+		if !job1OK {
 			t.Fatalf("expected to get a job, but didn't")
 		}
-		actualJob1 = *actualPtr
 		AssertJob(t, "get job 1", job1, actualJob1)
 
 		// Complete the job.
-		err = jm.CompleteJob(leaseID, job1.JobID, "response", errors.New("just a test"))
+		err = jm.CompleteJob(job1.JobID, "response", errors.New("just a test"))
 		if err != nil {
 			t.Errorf("got an error completing the job: %v", err)
 		}
@@ -110,15 +104,14 @@ func TestThatJobsCanBeStartedWithAndWithoutBeingAssociatedWithASchedule(t *testi
 		}
 
 		// Pull the second job.
-		actualPtr, err = jm.GetJob(leaseID)
+		actualJob2, job2OK, err := jm.GetJob("jobmanager_test")
 		if err != nil {
 			t.Fatalf("error getting job (after completion): %v", err)
 		}
-		if actualPtr == nil {
+		if !job2OK {
 			t.Errorf("job 2 should be available, but no job was retrieved")
 		}
-		actualJob2 = *actualPtr
-		AssertJob(t, "get job 2", job1, actualJob1)
+		AssertJob(t, "get job 2", job2, actualJob2)
 
 		// Check that it's possible to get the job response for ID 1, but not 2.
 		j1, r, jOK, rOK, err := jm.GetJobResponse(1)

@@ -22,8 +22,8 @@ func main() {
 	sigs := make(chan os.Signal)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	testJobs := false
-	testSchedule := true
+	testJobs := true
+	testSchedule := false
 
 	// Create test database to work against
 	dsn, dbName, err := mysql.CreateTestDatabase()
@@ -56,11 +56,13 @@ func main() {
 	// Start a scheduled job.
 	if testSchedule {
 		sm := mysql.NewScheduleManager(dsn)
-		// Run every minute.
-		id, err := sm.Create(time.Now().UTC(), arn, payload, []string{"* * * * *"}, "externalid", "harness")
-		logger.Infof("created schedule %v", id)
-		if err != nil {
-			logger.Errorf("failed to create schedule with error: %v", err)
+		for i := 0; i < tasksToCreate; i++ {
+			// Run every minute.
+			id, err := sm.Create(time.Now().UTC(), arn, payload, []string{"* * * * *"}, "externalid", "harness")
+			logger.Infof("created schedule %v", id)
+			if err != nil {
+				logger.Errorf("failed to create schedule with error: %v", err)
+			}
 		}
 	}
 

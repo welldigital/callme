@@ -35,7 +35,7 @@ func (m JobManager) StartJob(when time.Time, arn string, payload string, schedul
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare("INSERT `job` SET arn=?,payload=?,idschedule=?,`when`=?")
+	stmt, err := db.Prepare("INSERT `job` SET arn=?, payload=?, idschedule=?, `when`=?")
 	if err != nil {
 		return j, err
 	}
@@ -48,7 +48,8 @@ func (m JobManager) StartJob(when time.Time, arn string, payload string, schedul
 	return j, err
 }
 
-// GetAvailableJobCount returns the number of jobs present in the DB to process, i.e. where they have no job response.
+// GetAvailableJobCount returns the number of jobs present in the DB to process, i.e. where they have no job response and
+// they're ready to process.
 func (m JobManager) GetAvailableJobCount() (int, error) {
 	count := 0
 
@@ -61,7 +62,8 @@ func (m JobManager) GetAvailableJobCount() (int, error) {
 	rows, err := db.Query("SELECT COUNT(*) FROM `job` j " +
 		"LEFT JOIN `jobresponse` jr on jr.idjobid = j.idjob " +
 		"WHERE " +
-		"jr.idjobid IS NULL")
+		"jr.idjobid IS NULL AND " +
+		"j.`when` <= utc_timestamp()")
 	defer rows.Close()
 	if err != nil {
 		return count, err
@@ -74,40 +76,25 @@ func (m JobManager) GetAvailableJobCount() (int, error) {
 }
 
 // GetJob retrieves a job that's ready to run from the queue.
-func (m JobManager) GetJob(leaseID int64) (*data.Job, error) {
-	var j *data.Job
-
+func (m JobManager) GetJob(lockedBy string) (j data.Job, ok bool, err error) {
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
-		return j, err
+		return
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT "+
-		"j.idjob, "+
-		"j.idschedule, "+
-		"j.`when`, "+
-		"j.arn, "+
-		"j.payload "+
-		"FROM `job` j "+
-		"LEFT JOIN jobresponse jr on jr.idjobid = j.idjob "+
-		"INNER JOIN lease l ON l.idlease = ? AND l.`type`='job' "+
-		"WHERE "+
-		"jr.idjobid IS NULL AND "+
-		"l.rescinded = 0 AND "+
-		"l.type = 'job' AND "+
-		"l.until >= utc_timestamp();", leaseID)
+	rows, err := db.Query("call jm_getjob(?)", lockedBy)
 	defer rows.Close()
 	if err != nil {
-		return j, err
+		return
 	}
 
 	for rows.Next() {
-		j = &data.Job{}
 		err = rows.Scan(&j.JobID, &j.ScheduleID, &j.When, &j.ARN, &j.Payload)
+		ok = true
 		break
 	}
-	return j, err
+	return
 }
 
 // GetJobResponse retrieves a completed job's data.
@@ -120,7 +107,7 @@ func (m JobManager) GetJobResponse(jobID int64) (j data.Job, r data.JobResponse,
 
 	rows, err := db.Query("SELECT "+
 		"j.idjob, j.idschedule, j.when, j.arn, j.payload, "+
-		"jr.idjobresponse, jr.idlease, jr.idjobid, jr.time, jr.response, jr.iserror, jr.error "+
+		"jr.idjobresponse, jr.idjobid, jr.time, jr.response, jr.iserror, jr.error "+
 		"FROM `job` j "+
 		"LEFT JOIN jobresponse jr on jr.idjobid = j.idjob "+
 		"WHERE "+
@@ -135,7 +122,7 @@ func (m JobManager) GetJobResponse(jobID int64) (j data.Job, r data.JobResponse,
 		jobOK = true
 		var isErrorStr string
 		err = rows.Scan(&j.JobID, &j.ScheduleID, &j.When, &j.ARN, &j.Payload,
-			&r.JobResponseID, &r.LeaseID, &r.JobID, &r.Time, &r.Response, &isErrorStr, &r.Error)
+			&r.JobResponseID, &r.JobID, &r.Time, &r.Response, &isErrorStr, &r.Error)
 		r.IsError = convertMySQLBoolean(isErrorStr)
 		break
 	}
@@ -150,12 +137,11 @@ func convertMySQLBoolean(s string) bool {
 }
 
 // CompleteJob marks a job as complete.
-func (m JobManager) CompleteJob(leaseID, jobID int64, resp string, jobError error) error {
+func (m JobManager) CompleteJob(jobID int64, resp string, jobError error) error {
 	statement := "INSERT INTO `jobresponse` " +
-		"(`idlease`, `idjobid`, `time`, `response`, `iserror`, `error`) " +
+		"(`idjobid`, `time`, `response`, `iserror`, `error`) " +
 		"VALUES " +
-		"(?, ?, utc_timestamp(), ?, ?, ?);"
-
+		"(?, utc_timestamp(), ?, ?, ?);"
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
 		return err
@@ -175,6 +161,6 @@ func (m JobManager) CompleteJob(leaseID, jobID int64, resp string, jobError erro
 	if jobError != nil {
 		errorString = jobError.Error()
 	}
-	_, err = stmt.Exec(leaseID, jobID, resp, isError, errorString)
+	_, err = stmt.Exec(jobID, resp, isError, errorString)
 	return err
 }

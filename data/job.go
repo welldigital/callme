@@ -17,7 +17,6 @@ type Job struct {
 // A JobResponse records an execution of the Job.
 type JobResponse struct {
 	JobResponseID int64
-	LeaseID       int64
 	JobID         int64
 	Time          time.Time
 	Response      string

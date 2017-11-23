@@ -61,7 +61,6 @@ func main() {
 	hostName, _ := os.Hostname()
 	nodeName := fmt.Sprintf("callme_%v_%v", hostName, os.Getpid())
 
-	lm := mysql.NewLeaseManager(connectionString)
 	jm := mysql.NewJobManager(connectionString)
 	sm := mysql.NewScheduleManager(connectionString)
 
@@ -69,20 +68,14 @@ func main() {
 
 	logger.Infof("cmd.main: starting up scheduler and job worker")
 
-	scheduleWorkerFunction := scheduleworker.NewScheduleWorker(lm.Acquire,
-		nodeName,
-		lm.Rescind,
-		sm.GetSchedules,
-		sm.StartJobAndUpdateCron)
+	scheduleWorkerFunction := scheduleworker.NewScheduleWorker(nodeName, sm.GetSchedule, sm.StartJobAndUpdateCron)
 
 	go func() {
 		repetitive.Work("schedules", scheduleWorkerFunction, func() { time.Sleep(time.Minute) }, stopper)
 		waiter <- true
 	}()
 
-	jobWorkerFunction := jobworker.NewJobWorker(lm.Acquire,
-		nodeName,
-		lm.Rescind,
+	jobWorkerFunction := jobworker.NewJobWorker(nodeName,
 		jm.GetJob,
 		exectutor,
 		jm.CompleteJob)

@@ -2,7 +2,6 @@ package mysql
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/a-h/callme/data"
@@ -29,7 +28,6 @@ func (m ScheduleManager) Create(from time.Time, arn string, payload string, cron
 		ARN:             arn,
 		Payload:         payload,
 		Created:         time.Now().UTC(),
-		From:            from,
 		Active:          true,
 		DeactivatedDate: time.Time{},
 	}
@@ -41,8 +39,8 @@ func (m ScheduleManager) Create(from time.Time, arn string, payload string, cron
 	defer db.Close()
 
 	scheduleInsertSQL := "INSERT INTO `schedule` " +
-		"(`externalid`,`by`,`arn`,`payload`,`created`,`from`,`active`) " +
-		"VALUES (?, ?, ?, ?, ?, ?, ?)"
+		"(`externalid`,`by`,`arn`,`payload`,`created`,`active`) " +
+		"VALUES (?, ?, ?, ?, ?, ?)"
 
 	crontabInsertSQL := "INSERT INTO `crontab` " +
 		"(`idschedule`, `crontab`, `previous`, `next`, `lastupdated`)" +
@@ -58,8 +56,7 @@ func (m ScheduleManager) Create(from time.Time, arn string, payload string, cron
 	if err != nil {
 		return 0, err
 	}
-	res, err := scheduleInsert.Exec(s.ExternalID, s.By, s.ARN, s.Payload,
-		s.Created, s.From, s.Active)
+	res, err := scheduleInsert.Exec(s.ExternalID, s.By, s.ARN, s.Payload, s.Created, s.Active)
 	if err != nil {
 		return 0, err
 	}
@@ -101,123 +98,66 @@ func (m ScheduleManager) Deactivate(scheduleID int64) error {
 	return err
 }
 
-// GetSchedules is a ScheduleGetter which gets all schedules where Next is in the past, in order to schedule jobs.
-// While this operation doesn't need a lease, updating the records does.
-func (m ScheduleManager) GetSchedules() ([]data.ScheduleCrontab, error) {
-	sc := make([]data.ScheduleCrontab, 0)
-
+// GetSchedule is a ScheduleGetter which locks a schedule where Next is in the past, in order to schedule jobs.
+func (m ScheduleManager) GetSchedule(lockedBy string) (sc data.ScheduleCrontab, ok bool, err error) {
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
-		return sc, err
+		return
 	}
 	defer db.Close()
 
-	query := "SELECT " +
-		"sc.`idschedule`, `externalid`, `by`, `arn`, `payload`, `created`, `from`, `active`, `deactivateddate`, `idcrontab`, ct.`idschedule`, `crontab`, `previous`, `next`, `lastupdated` " +
-		"FROM " +
-		"`schedule` sc " +
-		"INNER JOIN `crontab` ct ON sc.idschedule = ct.idschedule " +
-		"WHERE " +
-		"ct.next < utc_timestamp() AND " +
-		"sc.active = 1"
-
-	rows, err := db.Query(query)
-	defer rows.Close()
+	rows, err := db.Query("call sm_getschedule(?)", lockedBy)
 	if err != nil {
-		return sc, err
+		return
 	}
+	defer rows.Close()
 
 	var isActiveStr string
 	var deactivatedDate *time.Time
 	for rows.Next() {
-		r := data.ScheduleCrontab{}
-		err = rows.Scan(&r.Schedule.ScheduleID,
-			&r.Schedule.ExternalID,
-			&r.Schedule.By,
-			&r.Schedule.ARN,
-			&r.Schedule.Payload,
-			&r.Schedule.Created,
-			&r.Schedule.From,
+		err = rows.Scan(&sc.CrontabLeaseID,
+			&sc.Schedule.ScheduleID,
+			&sc.Schedule.ExternalID,
+			&sc.Schedule.By,
+			&sc.Schedule.ARN,
+			&sc.Schedule.Payload,
+			&sc.Schedule.Created,
 			&isActiveStr,
 			&deactivatedDate,
-			&r.Crontab.CrontabID,
-			&r.Crontab.ScheduleID,
-			&r.Crontab.Crontab,
-			&r.Crontab.Previous,
-			&r.Crontab.Next,
-			&r.Crontab.LastUpdated)
-
-		r.Schedule.Active = convertMySQLBoolean(isActiveStr)
+			&sc.Crontab.CrontabID,
+			&sc.Crontab.ScheduleID,
+			&sc.Crontab.Crontab,
+			&sc.Crontab.Previous,
+			&sc.Crontab.Next,
+			&sc.Crontab.LastUpdated)
+		sc.Schedule.Active = convertMySQLBoolean(isActiveStr)
 		if deactivatedDate != nil {
-			r.Schedule.DeactivatedDate = *deactivatedDate
+			sc.Schedule.DeactivatedDate = *deactivatedDate
 		}
-
 		if err != nil {
-			return sc, err
+			return
 		}
-
-		sc = append(sc, r)
+		ok = true
 	}
-	return sc, err
+	return
 }
 
 // StartJobAndUpdateCron starts a new job based on the schedule record's arn and payload and updates the existing crontab to the new date.
-// It requires a valid lease, since without it, two processes could attempt to start jobs for the same cron schedule.
-func (m ScheduleManager) StartJobAndUpdateCron(leaseID, crontabID, scheduleID int64, newNext time.Time) (jobID int64, err error) {
+// It requires a crontabLeaseID so that it can be cancelled, allowing crontab refreshes at a rate faster than the lease timeout.
+func (m ScheduleManager) StartJobAndUpdateCron(crontabID, scheduleID, crontabLeaseID int64, newNext time.Time) (jobID int64, err error) {
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
 		return 0, err
 	}
 	defer db.Close()
 
-	tx, err := db.Begin()
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback()
-
-	// Only allow insertion of the job if the lease is valid to prevent creating two of the same job.
-	scheduleJobStmt, err := tx.Prepare("INSERT INTO `job`(arn, payload, idschedule, `when`) " +
-		"SELECT s.arn, s.payload, s.idschedule, utc_timestamp() FROM schedule s " +
-		"INNER JOIN lease l ON l.idlease=? " +
-		"WHERE " +
-		"l.rescinded = 0 AND " +
-		"l.type = 'schedule' AND " +
-		"l.until >= utc_timestamp() AND " +
-		"s.idschedule=?;")
+	rows, err := db.Query("call sm_startjobandupdatecron(?, ?, ?, ?)", crontabID, scheduleID, crontabLeaseID, newNext)
 	if err != nil {
 		return
 	}
-	r, err := scheduleJobStmt.Exec(leaseID, scheduleID)
-	if err != nil {
-		return
-	}
-
-	jobID, err = r.LastInsertId()
-	if err != nil {
-		return
-	}
-	if jobID == 0 {
-		return jobID, fmt.Errorf("failed to start job, no schedule was found or lease %v has expired", leaseID)
-	}
-
-	updateCrontabStmt, err := tx.Prepare("UPDATE crontab SET " +
-		"`previous`=`next`, " +
-		"`next`=?, " +
-		"`lastupdated`=utc_timestamp() " +
-		"WHERE idcrontab = ?")
-	if err != nil {
-		return 0, err
-	}
-
-	_, err = updateCrontabStmt.Exec(newNext, crontabID)
-	if err != nil {
-		return 0, err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return 0, err
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.Scan(&jobID)
 	}
 
 	return

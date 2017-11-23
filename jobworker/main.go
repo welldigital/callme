@@ -20,47 +20,30 @@ const defaultTimeout = time.Minute * 5
 type Executor func(arn string, payload string) (resp string, err error)
 
 // NewJobWorker creates a worker for the repetitive.Work function which processes pending jobs.
-func NewJobWorker(leaseAcquirer data.LeaseAcquirer,
-	nodeName string,
-	leaseRescinder data.LeaseRescinder,
+func NewJobWorker(nodeName string,
 	jobGetter data.JobGetter,
 	e Executor,
 	jobCompleter data.JobCompleter) repetitive.Worker {
 	return func() (workDone bool, err error) {
-		return findAndExecuteWork(leaseAcquirer, nodeName, leaseRescinder, jobGetter, e, jobCompleter, defaultTimeout)
+		return findAndExecuteWork(nodeName, jobGetter, e, jobCompleter, defaultTimeout)
 	}
 }
 
-func findAndExecuteWork(leaseAcquirer data.LeaseAcquirer,
-	nodeName string,
-	leaseRescinder data.LeaseRescinder,
+func findAndExecuteWork(nodeName string,
 	jobGetter data.JobGetter,
 	e Executor,
 	jobCompleter data.JobCompleter,
 	timeout time.Duration) (workDone bool, err error) {
-	leaseID, until, ok, err := leaseAcquirer(leaseName, nodeName)
+	// See if there's some work to do.
+	job, ok, err := jobGetter(nodeName)
 	if err != nil {
-		logger.Errorf("jobworker: failed to acquire lease with error: %v", err)
+		logger.Errorf("jobworker: error getting job: %v", err)
 		return
 	}
 	if !ok {
-		logger.Infof("jobworker: no work to do, another process has the lease")
+		logger.Infof("jobworker: no job available")
 		return
 	}
-	logger.Infof("jobworker: got lease %v on %v until %v", leaseID, leaseName, until)
-	defer leaseRescinder(leaseID)
-
-	// See if there's some work to do.
-	j, err := jobGetter(leaseID)
-	if err != nil {
-		logger.Errorf("jobworker: error getting jobs: %v", err)
-		return
-	}
-	if j == nil {
-		logger.Infof("jobworker: no jobs available")
-		return
-	}
-	job := *j
 
 	logger.WithJob(job).Infof("jobworker: executing")
 
@@ -68,11 +51,11 @@ func findAndExecuteWork(leaseAcquirer data.LeaseAcquirer,
 	var resp string
 	var ee error
 	execute := func() error {
-		resp, ee = e(j.ARN, j.Payload)
+		resp, ee = e(job.ARN, job.Payload)
 		if ee == nil {
 			logger.WithJob(job).Infof("jobworker: success")
 		} else {
-			logger.WithJob(job).Warnf("jobworker: failure, but may retry")
+			logger.WithJob(job).Warnf("jobworker: failure, but may retry, err: %v", ee)
 		}
 		return ee
 	}
@@ -88,7 +71,7 @@ func findAndExecuteWork(leaseAcquirer data.LeaseAcquirer,
 
 	// Attempt to complete the work.
 	complete := func() error {
-		jce := jobCompleter(leaseID, job.JobID, resp, executionError)
+		jce := jobCompleter(job.JobID, resp, executionError)
 		if jce == nil {
 			logger.WithJob(job).Infof("jobworker: job marked as complete successfully")
 		} else {

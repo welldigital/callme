@@ -27,7 +27,6 @@ func TestScheduleManager(t *testing.T) {
 				Created:         time.Now().UTC(),
 				DeactivatedDate: emptyTime,
 				ExternalID:      "externalid",
-				From:            from,
 				Payload:         `{ nonsense: "payload" }`,
 				ScheduleID:      1,
 			},
@@ -42,7 +41,7 @@ func TestScheduleManager(t *testing.T) {
 		}
 
 		sm := NewScheduleManager(dsn)
-		scheduleID, err := sm.Create(expected.Schedule.From,
+		scheduleID, err := sm.Create(expected.Crontab.Next,
 			expected.Schedule.ARN,
 			expected.Schedule.Payload,
 			[]string{expected.Crontab.Crontab},
@@ -56,53 +55,34 @@ func TestScheduleManager(t *testing.T) {
 		}
 
 		// Start processing schedules, newly processed ones should appear in the list.
-		scs, err := sm.GetSchedules()
+		actual, ok, err := sm.GetSchedule("schedulemanager_test")
 		if err != nil {
 			t.Fatalf("faied to get schedules with error: %v", err)
 		}
-		if len(scs) != 1 {
-			t.Fatalf("expected to retrieve one schedule crontab, but got %v", len(scs))
+		if !ok {
+			t.Fatalf("expected to retrieve a schedule crontab, but didn't")
 		}
-		actual := scs[0]
 		AssertSchedule(t, "get schedule", expected.Schedule, actual.Schedule)
 		AssertCrontab(t, "get schedule", expected.Crontab, actual.Crontab)
 
-		// Try and use an invalid lease (0).
 		// Update crontab to be checked again in the future.
 		newNext := time.Now().Add(time.Hour * 24)
-		var leaseID int64
-		jobID, err := sm.StartJobAndUpdateCron(leaseID, actual.Crontab.CrontabID, actual.Schedule.ScheduleID, newNext)
-		if err == nil {
-			t.Errorf("expected error because it's not possible to start a job without a lease, but one was not received.")
-		}
-		if jobID != 0 {
-			t.Errorf("expected no job to be started with an invalid lease, but got %v", jobID)
-		}
-
-		// Use a valid lease.
-		lm := NewLeaseManager(dsn)
-		leaseID, _, ok, err := lm.Acquire("schedule", "schedulemanager_test")
+		jobID, err := sm.StartJobAndUpdateCron(actual.Crontab.CrontabID, actual.Schedule.ScheduleID,
+			actual.CrontabLeaseID, newNext)
 		if err != nil {
-			t.Fatalf("error getting lease: %v", err)
-		}
-		if !ok {
-			t.Fatal("was unable to acquire lease")
-		}
-		jobID, err = sm.StartJobAndUpdateCron(leaseID, actual.Crontab.CrontabID, actual.Schedule.ScheduleID, newNext)
-		if err != nil {
-			t.Errorf("unexpected error starting job with valid lease: %v", err)
+			t.Errorf("unexpected error starting job: %v", err)
 		}
 		if jobID == 0 {
 			t.Errorf("failed to start a new job while updating the cron, expected > 0, but got %v", jobID)
 		}
 
 		// Check it's gone from the list.
-		scs, err = sm.GetSchedules()
+		sc, ok, err := sm.GetSchedule("schedulemanager_test")
 		if err != nil {
 			t.Fatalf("faied to get schedules with error: %v", err)
 		}
-		if len(scs) != 0 {
-			t.Errorf("expected not to retrieve any scheduled crontabs, but got %v", len(scs))
+		if ok {
+			t.Errorf("expected not to retrieve any scheduled crontabs, but got %v", sc)
 		}
 	}
 }
@@ -146,9 +126,6 @@ func AssertSchedule(t *testing.T, testName string, expected, actual data.Schedul
 	}
 	if expected.ExternalID != actual.ExternalID {
 		t.Errorf("%v: expected schedule ExternalID='%v', but was '%v'", testName, expected.ExternalID, actual.ExternalID)
-	}
-	if !dateIsWithinRange(expected.From, actual.From, time.Minute*5) {
-		t.Errorf("%v: expected schedule From='%v', but was '%v'", testName, expected.From, actual.From)
 	}
 	if expected.Payload != actual.Payload {
 		t.Errorf("%v: expected schedule Payload='%v', but was '%v'", testName, expected.Payload, actual.Payload)

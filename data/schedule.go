@@ -18,8 +18,6 @@ type Schedule struct {
 	Payload string
 	// Created is the date that the record was created.
 	Created time.Time
-	// From is the time the the schedule starts from.
-	From time.Time
 	// Active stores whether the schedule is active or not.
 	Active bool
 	// DeactivatedDate returns the date that the schedule was disabled.
@@ -48,6 +46,7 @@ type Crontab struct {
 
 // ScheduleCrontab is the Crontab data with its matching schedule attached.
 type ScheduleCrontab struct {
-	Schedule Schedule
-	Crontab  Crontab
+	Schedule       Schedule
+	Crontab        Crontab
+	CrontabLeaseID int64
 }

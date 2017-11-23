@@ -6,7 +6,7 @@ import "time"
 type JobStarter func(when time.Time, arn string, payload string, scheduleID *int64) (Job, error)
 
 // JobGetter retrieves a job that's ready to run from the queue.
-type JobGetter func(leaseID int64) (*Job, error)
+type JobGetter func(lockedBy string) (j Job, ok bool, err error)
 
 // JobCompleter marks a job as complete.
-type JobCompleter func(leaseID, jobID int64, resp string, err error) error
+type JobCompleter func(jobID int64, resp string, err error) error
