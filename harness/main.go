@@ -23,11 +23,11 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 	// Start up a bunch of jobs in the test DB
-	jobsToCreate := 0
+	jobsToCreate := 1000
 	// Create a schedule which creates a job each minute
 	schedulesToCreate := 1
 	// Quit after receipt of how many messages?
-	quitAfter := 3 // Should take about 3 minutes
+	quitAfter := 1000
 	// Numbers of processes
 	scheduleWorkerCount := 2
 	jobWorkerCount := 2

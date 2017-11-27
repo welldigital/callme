@@ -64,10 +64,10 @@ func (m JobManager) GetAvailableJobCount() (int, error) {
 		"WHERE " +
 		"jr.idjobid IS NULL AND " +
 		"j.`when` <= utc_timestamp()")
-	defer rows.Close()
 	if err != nil {
 		return count, err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		err = rows.Scan(&count)
@@ -84,10 +84,10 @@ func (m JobManager) GetJob(lockedBy string, lockExpiryMinutes int) (j data.Job, 
 	defer db.Close()
 
 	rows, err := db.Query("call jm_getjob(?, ?)", lockedBy, lockExpiryMinutes)
-	defer rows.Close()
 	if err != nil {
 		return
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		err = rows.Scan(&j.JobID, &j.ScheduleID, &j.When, &j.ARN, &j.Payload)
@@ -112,11 +112,10 @@ func (m JobManager) GetJobResponse(jobID int64) (j data.Job, r data.JobResponse,
 		"LEFT JOIN jobresponse jr on jr.idjobid = j.idjob "+
 		"WHERE "+
 		"jr.idjobid = ?", jobID)
-	defer rows.Close()
-
 	if err != nil {
 		return
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		jobOK = true

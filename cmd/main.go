@@ -3,14 +3,17 @@ package main
 import (
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/a-h/callme/metrics"
 	"github.com/a-h/callme/repetitive"
 	"github.com/a-h/callme/web"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/a-h/callme/jobworker"
 	"github.com/a-h/callme/scheduleworker"
@@ -20,6 +23,16 @@ import (
 	"github.com/a-h/callme/mysql"
 )
 
+func init() {
+	prometheus.MustRegister(metrics.JobCompletedCounts)
+	prometheus.MustRegister(metrics.JobCompletedDurations)
+	prometheus.MustRegister(metrics.JobExecutedCounts)
+	prometheus.MustRegister(metrics.JobExecutedDelay)
+	prometheus.MustRegister(metrics.JobExecutedDurations)
+	prometheus.MustRegister(metrics.JobLeaseCounts)
+	prometheus.MustRegister(metrics.JobLeaseDurations)
+}
+
 func main() {
 	scheduleWorkerCount := getIntegerSetting("CALLME_SCHEDULE_WORKER_COUNT", 1)
 	jobWorkerCount := getIntegerSetting("CALLME_JOB_WORKER_COUNT", 1)
@@ -28,6 +41,13 @@ func main() {
 	logger.Infof("cmd.main: starting %v processes - %v schedule workers and %v job workers", totalProcesses, scheduleWorkerCount, jobWorkerCount)
 
 	lockExpiryMinutes := getIntegerSetting("CALLME_LOCK_EXPIRY_MINUTES", 30)
+	prometheusPort := getIntegerSetting("CALLME_PROMETHEUS_PORT", 9090)
+
+	// Start serving metrics.
+	go func() {
+		http.Handle("/metrics", prometheus.Handler())
+		http.ListenAndServe(fmt.Sprintf(":%v", prometheusPort), nil)
+	}()
 
 	sigs := make(chan os.Signal, 2)
 	stopper := make(chan bool, totalProcesses)

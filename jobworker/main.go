@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/a-h/callme/logger"
+	"github.com/a-h/callme/metrics"
 	"github.com/a-h/callme/repetitive"
 
 	"github.com/a-h/callme/data"
@@ -13,7 +14,6 @@ import (
 )
 
 const leaseName = "job"
-
 const defaultTimeout = time.Minute * 5
 
 // An Executor executes work.
@@ -37,15 +37,23 @@ func findAndExecuteWork(workerName string,
 	jobCompleter data.JobCompleter,
 	timeout time.Duration) (workDone bool, err error) {
 	// See if there's some work to do.
+	jobGetStart := time.Now()
 	job, ok, err := jobGetter(workerName, lockExpiryMinutes)
+	jobGetDuration := time.Since(jobGetStart) / time.Millisecond
 	if err != nil {
 		logger.Errorf("%v: error getting job: %v", workerName, err)
+		metrics.JobLeaseCounts.WithLabelValues("error").Inc()
+		metrics.JobLeaseDurations.WithLabelValues("error").Observe(float64(jobGetDuration))
 		return
 	}
 	if !ok {
 		logger.Infof("%v: no job available", workerName)
+		metrics.JobLeaseDurations.WithLabelValues("none_available").Observe(float64(jobGetDuration))
+		metrics.JobLeaseCounts.WithLabelValues("none_available").Inc()
 		return
 	}
+	metrics.JobLeaseDurations.WithLabelValues("success").Observe(float64(jobGetDuration))
+	metrics.JobLeaseCounts.WithLabelValues("success").Inc()
 
 	logger.WithJob(job).Infof("%v: executing", workerName)
 
@@ -53,11 +61,19 @@ func findAndExecuteWork(workerName string,
 	var resp string
 	var ee error
 	execute := func() error {
+		jobDelay := time.Now().UTC().Sub(job.When)
+		jobExecuteStart := time.Now()
 		resp, ee = e(job.ARN, job.Payload)
+		jobExecuteDuration := time.Since(jobExecuteStart) / time.Millisecond
 		if ee == nil {
 			logger.WithJob(job).Infof("%v: success", workerName)
+			metrics.JobExecutedCounts.WithLabelValues("success").Inc()
+			metrics.JobExecutedDurations.WithLabelValues("success").Observe(float64(jobExecuteDuration))
+			metrics.JobExecutedDelay.Observe(float64(jobDelay))
 		} else {
 			logger.WithJob(job).Warnf("%v: failure, but may retry, err: %v", workerName, ee)
+			metrics.JobExecutedCounts.WithLabelValues("error").Inc()
+			metrics.JobExecutedDurations.WithLabelValues("error").Observe(float64(jobExecuteDuration))
 		}
 		return ee
 	}
@@ -73,11 +89,17 @@ func findAndExecuteWork(workerName string,
 
 	// Attempt to complete the work.
 	complete := func() error {
+		jobCompleteStart := time.Now()
 		jce := jobCompleter(job.JobID, resp, executionError)
+		jobCompleteDuration := time.Since(jobCompleteStart) / time.Millisecond
 		if jce == nil {
 			logger.WithJob(job).Infof("%v: job marked as complete successfully", workerName)
+			metrics.JobCompletedCounts.WithLabelValues("success").Inc()
+			metrics.JobCompletedDurations.WithLabelValues("success").Observe(float64(jobCompleteDuration))
 		} else {
 			logger.WithJob(job).Warnf("%v: job complete failure, but may retry", workerName)
+			metrics.JobCompletedCounts.WithLabelValues("error").Inc()
+			metrics.JobCompletedDurations.WithLabelValues("error").Observe(float64(jobCompleteDuration))
 		}
 		return jce
 	}
