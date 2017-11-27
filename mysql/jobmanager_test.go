@@ -8,6 +8,8 @@ import (
 	"github.com/a-h/callme/data"
 )
 
+const lockExpiryMins = 5
+
 func TestJobManager(t *testing.T) {
 	if !testing.Short() {
 		dsn, dbName, err := CreateTestDatabase()
@@ -79,7 +81,7 @@ func TestJobManager(t *testing.T) {
 		}
 
 		// Pull a job from the database.
-		actualJob1, job1OK, err := jm.GetJob("jobmanager_test")
+		actualJob1, job1OK, err := jm.GetJob("jobmanager_test", lockExpiryMins)
 		if err != nil {
 			t.Fatalf("error getting job1: %v", err)
 		}
@@ -104,7 +106,7 @@ func TestJobManager(t *testing.T) {
 		}
 
 		// Pull the second job.
-		actualJob2, job2OK, err := jm.GetJob("jobmanager_test")
+		actualJob2, job2OK, err := jm.GetJob("jobmanager_test", lockExpiryMins)
 		if err != nil {
 			t.Fatalf("error getting job (after completion): %v", err)
 		}

@@ -8,12 +8,14 @@ import (
 	"github.com/a-h/callme/data"
 )
 
-var nodeName = "scheduleworker_test"
+const nodeName = "scheduleworker_test"
+
+const lockExpiryMins = 5
 
 func TestThatErrorsRetrievingSchedulesAreReturned(t *testing.T) {
 	actual := Values{}
 
-	scheduleGetter := func(lockedBy string) (sc data.ScheduleCrontab, ok bool, err error) {
+	scheduleGetter := func(lockedBy string, lockExpiryMinutes int) (sc data.ScheduleCrontab, ok bool, err error) {
 		actual.ScheduleRetrieved = true
 		err = errors.New("error getting schedules")
 		return
@@ -25,7 +27,7 @@ func TestThatErrorsRetrievingSchedulesAreReturned(t *testing.T) {
 		return 1, nil
 	}
 
-	w := NewScheduleWorker(nodeName, scheduleGetter, scheduledJobStarter)
+	w := NewScheduleWorker(nodeName, lockExpiryMins, scheduleGetter, scheduledJobStarter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -45,7 +47,7 @@ func TestThatErrorsRetrievingSchedulesAreReturned(t *testing.T) {
 func TestThatIfNoJobsAreFoundNoUpdatesAreMade(t *testing.T) {
 	actual := Values{}
 
-	scheduleGetter := func(lockedBy string) (sc data.ScheduleCrontab, ok bool, err error) {
+	scheduleGetter := func(lockedBy string, lockExpiryMinutes int) (sc data.ScheduleCrontab, ok bool, err error) {
 		actual.ScheduleRetrieved = true
 		ok = false
 		return
@@ -57,7 +59,7 @@ func TestThatIfNoJobsAreFoundNoUpdatesAreMade(t *testing.T) {
 		return 1, nil
 	}
 
-	w := NewScheduleWorker(nodeName, scheduleGetter, scheduledJobStarter)
+	w := NewScheduleWorker(nodeName, lockExpiryMins, scheduleGetter, scheduledJobStarter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -79,7 +81,7 @@ func TestThatExpiredSchedulesStartNewJobs(t *testing.T) {
 
 	now := time.Now().UTC()
 
-	scheduleGetter := func(lockedBy string) (sc data.ScheduleCrontab, ok bool, err error) {
+	scheduleGetter := func(lockedBy string, lockExpiryMinutes int) (sc data.ScheduleCrontab, ok bool, err error) {
 		actual.ScheduleRetrieved = true
 		sc = data.ScheduleCrontab{
 			Schedule: data.Schedule{
@@ -112,7 +114,7 @@ func TestThatExpiredSchedulesStartNewJobs(t *testing.T) {
 		return 1, nil
 	}
 
-	w := NewScheduleWorker(nodeName, scheduleGetter, scheduledJobStarter)
+	w := NewScheduleWorker(nodeName, lockExpiryMins, scheduleGetter, scheduledJobStarter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -134,7 +136,7 @@ func TestThatErrorsParsingCronStatementsAreTracked(t *testing.T) {
 
 	now := time.Now().UTC()
 
-	scheduleGetter := func(lockedBy string) (sc data.ScheduleCrontab, ok bool, err error) {
+	scheduleGetter := func(lockedBy string, lockExpiryMinutes int) (sc data.ScheduleCrontab, ok bool, err error) {
 		actual.ScheduleRetrieved = true
 		sc = data.ScheduleCrontab{
 			Schedule: data.Schedule{
@@ -167,7 +169,7 @@ func TestThatErrorsParsingCronStatementsAreTracked(t *testing.T) {
 		return 1, nil
 	}
 
-	w := NewScheduleWorker(nodeName, scheduleGetter, scheduledJobStarter)
+	w := NewScheduleWorker(nodeName, lockExpiryMins, scheduleGetter, scheduledJobStarter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -189,7 +191,7 @@ func TestThatErrorsStartingWorkDoNotBlock(t *testing.T) {
 
 	now := time.Now().UTC()
 
-	scheduleGetter := func(lockedBy string) (sc data.ScheduleCrontab, ok bool, err error) {
+	scheduleGetter := func(lockedBy string, lockExpiryMinutes int) (sc data.ScheduleCrontab, ok bool, err error) {
 		actual.ScheduleRetrieved = true
 		sc = data.ScheduleCrontab{
 			Schedule: data.Schedule{
@@ -220,7 +222,7 @@ func TestThatErrorsStartingWorkDoNotBlock(t *testing.T) {
 		return 0, errors.New("this is a failure")
 	}
 
-	w := NewScheduleWorker(nodeName, scheduleGetter, scheduledJobStarter)
+	w := NewScheduleWorker(nodeName, lockExpiryMins, scheduleGetter, scheduledJobStarter)
 
 	var err error
 	actual.WorkDone, err = w()

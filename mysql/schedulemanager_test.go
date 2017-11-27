@@ -55,7 +55,7 @@ func TestScheduleManager(t *testing.T) {
 		}
 
 		// Start processing schedules, newly processed ones should appear in the list.
-		actual, ok, err := sm.GetSchedule("schedulemanager_test")
+		actual, ok, err := sm.GetSchedule("schedulemanager_test", lockExpiryMins)
 		if err != nil {
 			t.Fatalf("faied to get schedules with error: %v", err)
 		}
@@ -77,7 +77,7 @@ func TestScheduleManager(t *testing.T) {
 		}
 
 		// Check it's gone from the list.
-		sc, ok, err := sm.GetSchedule("schedulemanager_test")
+		sc, ok, err := sm.GetSchedule("schedulemanager_test", lockExpiryMins)
 		if err != nil {
 			t.Fatalf("faied to get schedules with error: %v", err)
 		}

@@ -99,14 +99,14 @@ func (m ScheduleManager) Deactivate(scheduleID int64) error {
 }
 
 // GetSchedule is a ScheduleGetter which locks a schedule where Next is in the past, in order to schedule jobs.
-func (m ScheduleManager) GetSchedule(lockedBy string) (sc data.ScheduleCrontab, ok bool, err error) {
+func (m ScheduleManager) GetSchedule(lockedBy string, lockExpiryMinutes int) (sc data.ScheduleCrontab, ok bool, err error) {
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
 		return
 	}
 	defer db.Close()
 
-	rows, err := db.Query("call sm_getschedule(?)", lockedBy)
+	rows, err := db.Query("call sm_getschedule(?, ?)", lockedBy, lockExpiryMinutes)
 	if err != nil {
 		return
 	}

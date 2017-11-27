@@ -7,7 +7,7 @@ import (
 )
 
 func TestThatAWorkerCanBeStopped(t *testing.T) {
-	sleep := func() {}
+	sleep := time.Second * 5
 	stopper := make(chan bool)
 	workDone := make(chan bool, 1024) // Allow 1024 work items.
 	timeoutReached := false
@@ -75,7 +75,7 @@ func TestThatWorkersSleepWhenNoWorkHasBeenDone(t *testing.T) {
 		stopper <- true
 	}()
 
-	Work("test", worker, sleep, stopper)
+	work("test", worker, time.Nanosecond, sleep, stopper)
 
 	if timeoutReached {
 		t.Errorf("expected to be able to stop the worker within 10s")

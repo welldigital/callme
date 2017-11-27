@@ -8,35 +8,35 @@ import (
 	"github.com/a-h/callme/data"
 )
 
-const leaseName = "schedule"
-
 // NewScheduleWorker creates a worker for the repetitive.Work function which processes schedules and queues any required jobs.
-func NewScheduleWorker(lockedBy string,
+func NewScheduleWorker(workerName string,
+	lockExpiryMinutes int,
 	scheduleGetter data.ScheduleGetter,
 	scheduledJobStarter data.ScheduledJobStarter) repetitive.Worker {
 	return func() (workDone bool, err error) {
-		return findAndExecuteWork(lockedBy, scheduleGetter, scheduledJobStarter)
+		return findAndExecuteWork(workerName, lockExpiryMinutes, scheduleGetter, scheduledJobStarter)
 	}
 }
 
-func findAndExecuteWork(lockedBy string,
+func findAndExecuteWork(workerName string,
+	lockExpiryMinutes int,
 	scheduleGetter data.ScheduleGetter,
 	scheduledJobStarter data.ScheduledJobStarter,
 ) (workDone bool, err error) {
 	// See if there's some work to do.
-	sc, ok, err := scheduleGetter(lockedBy)
+	sc, ok, err := scheduleGetter(workerName, lockExpiryMinutes)
 	if err != nil {
-		logger.Errorf("scheduleworker: failed to get schedule crontab with error: %v", err)
+		logger.Errorf("%v: failed to get schedule crontab with error: %v", workerName, err)
 		return
 	}
 	if !ok {
-		logger.Infof("scheduleworker: no crontabs to update")
+		logger.Infof("%v: no crontabs to update", workerName)
 		return
 	}
 
 	c, err := cron.Parse(sc.Crontab.Crontab)
 	if err != nil {
-		logger.WithCrontab(sc.Crontab).Errorf("scheduleworker: skipping crontab: failed to parse: '%v'", sc.Crontab.Crontab)
+		logger.WithCrontab(sc.Crontab).Errorf("%v: skipping crontab: failed to parse: '%v'", workerName, sc.Crontab.Crontab)
 		return
 	}
 
@@ -44,7 +44,7 @@ func findAndExecuteWork(lockedBy string,
 	newNext := c.Next(sc.Crontab.Next)
 	jobID, err := scheduledJobStarter(sc.Crontab.CrontabID, sc.Schedule.ScheduleID, sc.CrontabLeaseID, newNext)
 	if err != nil || jobID == 0 {
-		logger.WithCrontab(sc.Crontab).Errorf("scheduleworker: failed to start job and update cron: %v", err)
+		logger.WithCrontab(sc.Crontab).Errorf("%v: failed to start job and update cron: %v", workerName, err)
 	}
 	workDone = true
 	return

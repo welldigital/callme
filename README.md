@@ -4,8 +4,7 @@ Schedule SNS notifications to be sent on a repeating schedule, or in the future 
 
 # Features
  
- * As few as possible.
- * Active / passive design. Agents take a lease on processing.
+ * Multiple agents can process jobs and schedules, by taking a lease on a schedule's individual cron or job.
  * JSON logging to allow CloudWatch to extract metrics from the logs.
 
 # Dependenices
@@ -17,9 +16,24 @@ Schedule SNS notifications to be sent on a repeating schedule, or in the future 
  * Create a database for `callme`.
    * `CREATE SCHEMA `callme` DEFAULT CHARACTER SET utf8 ;`
  * Set the `CALLME_CONNECTION_STRING` environment variable.
-   * `export CALLME_CONNECTION_STRING='Server=localhost;Port=3309;Database=callme;Uid=root;Pwd=callme;Allow User Variables=true;multiStatements=true'`
+   * `export CALLME_CONNECTION_STRING='Server=localhost;Port=3306;Database=callme;Uid=root;Pwd=callme;Allow User Variables=true;multiStatements=true'`
  * Run the `callme` executable or Docker container.
  * Interact with the API to setup recurring notifications, or jobs at a specific point in time.
+
+# Testing
+
+The system is unit tested, and also has different types of integration test. The first is the `mysql` tests which test that the MySQL queries function as designed, while the second tests the system behaviour when loaded with synthetic data (see `./harness`).
+
+# Key Concepts
+
+ * Schedule
+   * An operation that should happen on a periodic basis.
+   * A schedule triggers the creation of jobs on a just-in-time basis, i.e. when the schedule is ready for the next item, a job is created at that moment.
+ * Job
+   * An operation that should happen at some point in the future.
+   * Jobs will be created by Schedules, and will happen _near_ to the date and time of the next schedule. The exact date/time can't be guaranteed, since it depends on system load and the regularity of database polling to retrieve upcoming jobs.
+ * Lease
+   * A lock acquired by a system process which gives that process the right to process a schedule's cron or a single job for a time limit.
 
 # Monitoring
 
@@ -27,8 +41,25 @@ Schedule SNS notifications to be sent on a repeating schedule, or in the future 
 ## What leases are currently valid and what processes are they assigned to?
 ## How long was it since the lease was last used?
 ## How many schedules have expired and should have been turned into jobs?
+## How long is it taking from a schedule expiring, to a job being created?
+## How long is it taking to execute jobs?
+## How long are jobs waiting in a queue?
+## How long is it taking from a schedule expiring, to a job being executed?
 ## How many jobs are waiting to run?
 ## Have many jobs have executed in a particular time period?
+## How many faults have occurred?
+## Schedule statuses
+
+* Failed to parse cron
+  * The schedule lease lasts an hour, so in an hour it will be retried forever. Best to fix it. The API shouldn't have allowed an invalid cron expression, so there's likely been some human updates on the database.
+* Failed to update schedule and start a job
+  * The schedule update and job start is carried out within a transaction using the `sm_startjobandupdatecron` procedure, the operation will be retried when the lease expires (by default, an hour).
+
+|                         | Got lease                  | Failed to parse cron    |  Failed to mark complete    |
+| ----------------------- | -------------------------- | ----------------------------------------------------- |
+| Failed to parse         | A: No problem              | B: Job marked as errored, human intervention required |
+| Marked complete failed  | C: SNS will be sent again  | D: Will be retried again                              |
+
 ## Job statuses
 
 |                         | Sent SNS OK                | Sent SNS failed                                       |

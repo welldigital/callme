@@ -17,8 +17,16 @@ func Debugf(format string, args ...interface{}) {
 	log.Debugf(format, args...)
 }
 
+func Warnf(format string, args ...interface{}) {
+	log.Warnf(format, args...)
+}
+
 func Errorf(format string, args ...interface{}) {
 	log.Errorf(format, args...)
+}
+
+func Fatal(args ...interface{}) {
+	log.Fatal(args...)
 }
 
 func WithCrontab(ct data.Crontab) *log.Entry {

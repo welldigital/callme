@@ -76,14 +76,14 @@ func (m JobManager) GetAvailableJobCount() (int, error) {
 }
 
 // GetJob retrieves a job that's ready to run from the queue.
-func (m JobManager) GetJob(lockedBy string) (j data.Job, ok bool, err error) {
+func (m JobManager) GetJob(lockedBy string, lockExpiryMinutes int) (j data.Job, ok bool, err error) {
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
 		return
 	}
 	defer db.Close()
 
-	rows, err := db.Query("call jm_getjob(?)", lockedBy)
+	rows, err := db.Query("call jm_getjob(?, ?)", lockedBy, lockExpiryMinutes)
 	defer rows.Close()
 	if err != nil {
 		return

@@ -12,7 +12,7 @@ import (
 func getTestConnectionString() string {
 	dsn := os.Getenv("CALLME_CONNECTION_STRING")
 	if dsn == "" {
-		dsn = "root:callme@tcp(localhost:3309)/callme?parseTime=true&multiStatements=true"
+		dsn = "root:callme@tcp(localhost:3306)/callme?parseTime=true&multiStatements=true"
 	}
 	return dsn
 }

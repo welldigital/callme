@@ -1,4 +1,4 @@
-CREATE PROCEDURE `sm_getschedule`(lockedby varchar(256))
+CREATE PROCEDURE `sm_getschedule`(lockedby varchar(256), lockExpiryMinutes int)
 BEGIN
 	START TRANSACTION;
 		SET @lastID = LAST_INSERT_ID(0);
@@ -8,7 +8,7 @@ BEGIN
 			ct.idcrontab,
 			lockedby,
 			utc_timestamp(),
-			TIMESTAMPADD(HOUR, 1, utc_timestamp())
+			TIMESTAMPADD(MINUTE, lockExpiryMinutes, utc_timestamp())
 		FROM
 			`crontab` ct
 		 	INNER JOIN `schedule` sc ON sc.idschedule = ct.idschedule

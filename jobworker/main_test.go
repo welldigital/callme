@@ -9,11 +9,12 @@ import (
 )
 
 const nodeName = "jobworker_test"
+const lockExpiryMins = 5
 
 func TestThatNoWorkIsDoneIfAJobIsNotRetrieved(t *testing.T) {
 	actual := Values{}
 
-	jobGetter := func(lockedBy string) (j data.Job, ok bool, err error) {
+	jobGetter := func(lockedBy string, lockExpiryMinutes int) (j data.Job, ok bool, err error) {
 		actual.JobRetrieved = true
 		ok = false
 		return
@@ -29,7 +30,7 @@ func TestThatNoWorkIsDoneIfAJobIsNotRetrieved(t *testing.T) {
 		return nil
 	}
 
-	w := NewJobWorker(nodeName, jobGetter, executor, jobCompleter)
+	w := NewJobWorker(nodeName, lockExpiryMins, jobGetter, executor, jobCompleter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -49,7 +50,7 @@ func TestThatNoWorkIsDoneIfAJobIsNotRetrieved(t *testing.T) {
 func TestThatGettingAJobResultsInWorkBeingExecuted(t *testing.T) {
 	actual := Values{}
 
-	jobGetter := func(lockedBy string) (j data.Job, ok bool, err error) {
+	jobGetter := func(lockedBy string, lockExpiryMinutes int) (j data.Job, ok bool, err error) {
 		actual.JobRetrieved = true
 		scheduleID := int64(1)
 
@@ -74,7 +75,7 @@ func TestThatGettingAJobResultsInWorkBeingExecuted(t *testing.T) {
 		return nil
 	}
 
-	w := NewJobWorker(nodeName, jobGetter, executor, jobCompleter)
+	w := NewJobWorker(nodeName, lockExpiryMins, jobGetter, executor, jobCompleter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -94,7 +95,7 @@ func TestThatGettingAJobResultsInWorkBeingExecuted(t *testing.T) {
 func TestThatErrorsGettingAJobResultsInNoWorkBeingExecuted(t *testing.T) {
 	actual := Values{}
 
-	jobGetter := func(lockedBy string) (j data.Job, ok bool, err error) {
+	jobGetter := func(lockedBy string, lockExpiryMinutes int) (j data.Job, ok bool, err error) {
 		actual.JobRetrieved = true
 		err = errors.New("failed to get job")
 		return
@@ -110,7 +111,7 @@ func TestThatErrorsGettingAJobResultsInNoWorkBeingExecuted(t *testing.T) {
 		return nil
 	}
 
-	w := NewJobWorker(nodeName, jobGetter, executor, jobCompleter)
+	w := NewJobWorker(nodeName, lockExpiryMins, jobGetter, executor, jobCompleter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -130,7 +131,7 @@ func TestThatErrorsGettingAJobResultsInNoWorkBeingExecuted(t *testing.T) {
 func TestThatWhenJobsAndCompletionsFailTheyGetRetried(t *testing.T) {
 	actual := Values{}
 
-	jobGetter := func(lockedBy string) (j data.Job, ok bool, err error) {
+	jobGetter := func(lockedBy string, lockExpiryMinutes int) (j data.Job, ok bool, err error) {
 		actual.JobRetrieved = true
 		scheduleID := int64(1)
 
@@ -165,7 +166,7 @@ func TestThatWhenJobsAndCompletionsFailTheyGetRetried(t *testing.T) {
 		return nil
 	}
 
-	w := NewJobWorker(nodeName, jobGetter, executor, jobCompleter)
+	w := NewJobWorker(nodeName, lockExpiryMins, jobGetter, executor, jobCompleter)
 
 	var err error
 	actual.WorkDone, err = w()
@@ -191,7 +192,7 @@ func TestThatWhenJobsAndCompletionsFailTheyGetRetried(t *testing.T) {
 func TestThatJobExecutionRetriesAreTimeLimited(t *testing.T) {
 	actual := Values{}
 
-	jobGetter := func(lockedBy string) (j data.Job, ok bool, err error) {
+	jobGetter := func(lockedBy string, lockExpiryMinutes int) (j data.Job, ok bool, err error) {
 		actual.JobRetrieved = true
 		scheduleID := int64(1)
 
@@ -220,7 +221,7 @@ func TestThatJobExecutionRetriesAreTimeLimited(t *testing.T) {
 
 	var err error
 	timeout := time.Second * 1
-	actual.WorkDone, err = findAndExecuteWork(nodeName, jobGetter, executor, jobCompleter, timeout)
+	actual.WorkDone, err = findAndExecuteWork(nodeName, lockExpiryMins, jobGetter, executor, jobCompleter, timeout)
 	actual.ErrorOccurred = err != nil
 
 	expected := Values{
@@ -245,7 +246,7 @@ func TestThatJobExecutionRetriesAreTimeLimited(t *testing.T) {
 func TestThatMarkCompleteRetriesAreTimeLimited(t *testing.T) {
 	actual := Values{}
 
-	jobGetter := func(lockedBy string) (j data.Job, ok bool, err error) {
+	jobGetter := func(lockedBy string, lockExpiryMinutes int) (j data.Job, ok bool, err error) {
 		actual.JobRetrieved = true
 		scheduleID := int64(1)
 
@@ -274,7 +275,7 @@ func TestThatMarkCompleteRetriesAreTimeLimited(t *testing.T) {
 
 	var err error
 	timeout := time.Second * 1
-	actual.WorkDone, err = findAndExecuteWork(nodeName, jobGetter, executor, jobCompleter, timeout)
+	actual.WorkDone, err = findAndExecuteWork(nodeName, lockExpiryMins, jobGetter, executor, jobCompleter, timeout)
 	actual.ErrorOccurred = err != nil
 
 	expected := Values{
@@ -299,7 +300,7 @@ func TestThatMarkCompleteRetriesAreTimeLimited(t *testing.T) {
 func TestThatBothExecutionAndCompletionErrorsAreTracked(t *testing.T) {
 	actual := Values{}
 
-	jobGetter := func(lockedBy string) (j data.Job, ok bool, err error) {
+	jobGetter := func(lockedBy string, lockExpiryMinutes int) (j data.Job, ok bool, err error) {
 		actual.JobRetrieved = true
 		scheduleID := int64(1)
 
@@ -326,7 +327,7 @@ func TestThatBothExecutionAndCompletionErrorsAreTracked(t *testing.T) {
 
 	var err error
 	timeout := time.Millisecond * 100
-	actual.WorkDone, err = findAndExecuteWork(nodeName, jobGetter, executor, jobCompleter, timeout)
+	actual.WorkDone, err = findAndExecuteWork(nodeName, lockExpiryMins, jobGetter, executor, jobCompleter, timeout)
 	actual.ErrorOccurred = err != nil
 
 	expected := Values{
@@ -339,7 +340,7 @@ func TestThatBothExecutionAndCompletionErrorsAreTracked(t *testing.T) {
 
 	expected.Assert(t, actual)
 	actualErrMsg := err.Error()
-	expectedErrMsg := "execution: execution error, completion: completion error"
+	expectedErrMsg := "jobworker_test: execution: execution error, completion: completion error"
 	if actualErrMsg != expectedErrMsg {
 		t.Errorf("expected error message: '%v', got: '%v'", expectedErrMsg, actualErrMsg)
 	}

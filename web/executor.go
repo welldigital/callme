@@ -9,6 +9,9 @@ import "strings"
 func Execute(address string, body string) (resp string, err error) {
 	buf := strings.NewReader(body)
 	response, err := http.Post(address, "application/json", buf)
+	if err != nil {
+		return "", err
+	}
 	bytes, err := ioutil.ReadAll(response.Body)
 	defer response.Body.Close()
 	return string(bytes), err

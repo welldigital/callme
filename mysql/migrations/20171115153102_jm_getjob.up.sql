@@ -1,4 +1,4 @@
-CREATE PROCEDURE `jm_getjob`(lockedby varchar(256))
+CREATE PROCEDURE `jm_getjob`(lockedby varchar(256), lockExpiryMinutes int)
 BEGIN
 	START TRANSACTION;
 		SET @lastID = LAST_INSERT_ID(0);
@@ -8,7 +8,7 @@ BEGIN
 			j.idjob,
 			lockedby,
 			utc_timestamp(),
-			TIMESTAMPADD(HOUR, 1, utc_timestamp())
+			TIMESTAMPADD(MINUTE, lockExpiryMinutes, utc_timestamp())
 		FROM `job` j
 			LEFT JOIN jobresponse jr ON jr.idjobid = j.idjob
 			LEFT JOIN joblease jl ON jl.idjob = j.idjob

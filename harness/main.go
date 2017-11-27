@@ -3,17 +3,17 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/a-h/callme/mysql"
 
-	"github.com/a-h/callme/logger"
+	log "github.com/a-h/callme/logger"
 
 	"net/http/pprof"
 )
@@ -22,52 +22,54 @@ func main() {
 	sigs := make(chan os.Signal)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	testJobs := true
-	testSchedule := false
+	// Start up a bunch of jobs in the test DB
+	jobsToCreate := 0
+	// Create a schedule which creates a job each minute
+	schedulesToCreate := 1
+	// Quit after receipt of how many messages?
+	quitAfter := 3 // Should take about 3 minutes
+	// Numbers of processes
+	scheduleWorkerCount := 2
+	jobWorkerCount := 2
 
 	// Create test database to work against
 	dsn, dbName, err := mysql.CreateTestDatabase()
 	if err != nil {
-		logger.Errorf("failed to create test databse: %v", err)
+		log.Errorf("failed to create test databse: %v", err)
 		return
 	}
 	defer mysql.DropTestDatabase(dbName)
-
-	// Start up a bunch of tasks in the test DB
-	tasksToCreate := 1000
 
 	arn := "http://localhost:8080"
 	payload := `{ "test": true }`
 
 	taskStart := time.Now().UTC()
-	if testJobs {
-		jm := mysql.NewJobManager(dsn)
-		for i := 0; i < tasksToCreate; i++ {
-			j, err := jm.StartJob(time.Now().UTC(), arn, payload, nil)
-			if err != nil {
-				logger.Errorf("failed to create test job i=%v, with error: %v", i, err)
-				return
-			}
-			logger.WithJob(j).Info("created")
+	log.Infof("creating %v jobs", jobsToCreate)
+	jm := mysql.NewJobManager(dsn)
+	for i := 0; i < jobsToCreate; i++ {
+		j, err := jm.StartJob(time.Now().UTC(), arn, payload, nil)
+		if err != nil {
+			log.Errorf("failed to create test job i=%v, with error: %v", i, err)
+			return
 		}
+		log.WithJob(j).Info("created")
 	}
 	taskDuration := time.Now().UTC().Sub(taskStart)
 
 	// Start a scheduled job.
-	if testSchedule {
-		sm := mysql.NewScheduleManager(dsn)
-		for i := 0; i < tasksToCreate; i++ {
-			// Run every minute.
-			id, err := sm.Create(time.Now().UTC(), arn, payload, []string{"* * * * *"}, "externalid", "harness")
-			logger.Infof("created schedule %v", id)
-			if err != nil {
-				logger.Errorf("failed to create schedule with error: %v", err)
-			}
+	log.Infof("creating %v schedules", schedulesToCreate)
+	sm := mysql.NewScheduleManager(dsn)
+	for i := 0; i < schedulesToCreate; i++ {
+		// Run every minute.
+		id, err := sm.Create(time.Now().UTC(), arn, payload, []string{"* * * * *"}, "externalid", "harness")
+		log.Infof("created schedule %v", id)
+		if err != nil {
+			log.Errorf("failed to create schedule with error: %v", err)
 		}
 	}
 
 	// Start a web server to count the work.
-	handler := NewCountHandler(tasksToCreate)
+	handler := NewCountHandler(quitAfter)
 
 	r := http.NewServeMux()
 	r.Handle("/", handler)
@@ -97,6 +99,8 @@ func main() {
 	cmd := exec.Command("../cmd/cmd")
 	cmd.Env = append(cmd.Env, "CALLME_CONNECTION_STRING="+dsn)
 	cmd.Env = append(cmd.Env, "CALLME_MODE=web")
+	cmd.Env = append(cmd.Env, "CALLME_SCHEDULE_WORKER_COUNT="+strconv.Itoa(scheduleWorkerCount))
+	cmd.Env = append(cmd.Env, "CALLME_JOB_WORKER_COUNT="+strconv.Itoa(jobWorkerCount))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -111,26 +115,26 @@ func main() {
 	// Wait for completion
 	select {
 	case <-sigs:
-		logger.Infof("stop signal received")
+		log.Infof("stop signal received")
 		break
 	case <-handler.Completed:
-		logger.Infof("test complete")
+		log.Infof("test complete")
 		break
 	}
 	runDuration := time.Now().UTC().Sub(runStart)
 
-	logger.Infof("shutting down web server")
+	log.Infof("shutting down web server")
 	if err := s.Close(); err != nil {
-		logger.Errorf("failed to shut down server with error: %v", err)
+		log.Errorf("failed to shut down server with error: %v", err)
 	}
-	logger.Infof("killing process")
+	log.Infof("killing process")
 	if err := cmd.Process.Kill(); err != nil {
-		logger.Errorf("failed to kill process with error: %v", err)
+		log.Errorf("failed to kill process with error: %v", err)
 	}
 
 	// Write out a summary
-	fmt.Printf("created %v tasks in %v seconds\n", tasksToCreate, taskDuration.Seconds())
-	fmt.Printf("web server received %v of %v messages in %v seconds\n", handler.Received, tasksToCreate, runDuration.Seconds())
+	log.Infof("created %v jobs in %f seconds\n", jobsToCreate, taskDuration.Seconds())
+	log.Infof("web server received %v messages in %f seconds\n", handler.Received, runDuration.Seconds())
 }
 
 var s *http.Server
@@ -179,7 +183,7 @@ func (h *CountHandler) Receive() {
 			select {
 			case <-h.c:
 				h.Received++
-				logger.Infof("received: %v", h.Received)
+				log.Infof("received: %v", h.Received)
 			case <-h.stopper:
 				return
 			default:
@@ -194,6 +198,6 @@ func (h *CountHandler) Receive() {
 
 func (h *CountHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.c <- true
-	logger.Infof("received HTTP request %v", h.Received)
+	log.Infof("received HTTP request %v", h.Received)
 	io.WriteString(w, "OK\n")
 }

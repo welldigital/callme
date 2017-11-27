@@ -9,11 +9,15 @@ import (
 // Worker is a function which carries out some work.
 type Worker func() (workDone bool, err error)
 
-// WaitForFiveSeconds sleeps for 5 seconds.
-var WaitForFiveSeconds = func() { time.Sleep(5 * time.Second) }
-
 // Work runs until the stopper channel receives a stop signal.
 func Work(name string, worker Worker,
+	sleep time.Duration,
+	stopper <-chan bool) {
+	work(name, worker, sleep, func() { time.Sleep(sleep) }, stopper)
+}
+
+func work(name string, worker Worker,
+	sleepFor time.Duration,
 	sleep func(),
 	stopper <-chan bool) {
 	for {
@@ -27,7 +31,7 @@ func Work(name string, worker Worker,
 				continue
 			}
 			if !workDone {
-				logger.Infof("%s: work complete, sleeping", name)
+				logger.Infof("%s: work complete, sleeping for %v, next work at %v", name, sleepFor, time.Now().UTC().Add(sleepFor))
 				sleep()
 			}
 		case <-stopper:
