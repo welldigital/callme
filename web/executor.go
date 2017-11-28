@@ -1,9 +1,11 @@
 package web
 
-import "net/http"
-import "io/ioutil"
-
-import "strings"
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+)
 
 // Execute assumes that the address provided is a HTTP endpoint and posts the payload to it.
 func Execute(address string, body string) (resp string, err error) {
@@ -12,7 +14,13 @@ func Execute(address string, body string) (resp string, err error) {
 	if err != nil {
 		return "", err
 	}
-	bytes, err := ioutil.ReadAll(response.Body)
+	if response.StatusCode < 200 || response.StatusCode > 300 {
+		err = fmt.Errorf("received status code: %v", response.StatusCode)
+	}
+	bytes, readErr := ioutil.ReadAll(response.Body)
 	defer response.Body.Close()
+	if err == nil {
+		err = readErr
+	}
 	return string(bytes), err
 }

@@ -1,6 +1,6 @@
 # Call Me
 
-Schedule SNS notifications to be sent on a repeating schedule, or in the future with database backed persistence.
+Schedule SNS or HTTP (Webhook) notifications to be sent on a repeating schedule, or in the future with database backed persistence.
 
 # Features
  
@@ -159,6 +159,7 @@ This scenario is likely that after pulling a job from the database, all network 
 | CALLME_JOB_WORKER_COUNT       | 1                     | Number of routines processing jobs.                   |
 | CALLME_LOCK_EXPIRY_MINUTES    | 30                    | Minutes a routine has to process a job or schedule.   |
 | CALLME_PROMETHEUS_PORT        | 9090                  | The port for the metrics HTTP endpoint                |
+| CALLME_MODE                   | sns                   | Whether to send SNS notifications (sns), or Web (web) |
 
 # Development
 
