@@ -39,10 +39,12 @@ The system is unit tested, and also has different types of integration test. The
 
 ## Prometheus Metrics
 
+### Job Metrics
+
 * job_leased_total
-  * The number of calls to collect jobs, and the number of successful collections.
+  * The number of calls to collect jobs, seperated by success, error or none_available.
 * job_leased_duration_milliseconds
-  * How long it took to execute a database claim.
+  * How long it took to execute a database claim and retrieve a job to work on.
 * job_executed_total
   * The number of executions of jobs, split up by success.
 * job_executed_duration_milliseconds
@@ -53,6 +55,22 @@ The system is unit tested, and also has different types of integration test. The
   * The number of jobs marked as completed, split up by status.
 * job_completed_duration_milliseconds
   * How long it took to mark jobs as completed.
+
+### Schedule Metrics
+
+* schedule_leased_total
+  * The number of calls to collect a lease on a single schedule, seperated by success, error or none_available.
+* schedule_leased_duration_milliseconds
+  * How long it took to execute a database claim and retrieve a schedule to work on.
+* schedule_executed_total
+  * The number of times that the schedule's cron expression was parsed, separated by success or error.
+* schedule_executed_delay_milliseconds
+  * The amount of delay between a schedule's update time, and when it actually started.
+* schedule_job_started_total
+  * The count of jobs started by a schedule.
+* schedule_job_started_duration_milliseconds
+  * The amount of time taken to start jobs and mark the schedule as updated.
+
 
 ## Can the callme process access the database to acquire leases?
 ## What leases are currently valid and what processes are they assigned to?

@@ -18,7 +18,7 @@ var ScheduleLeaseDurations = prometheus.NewHistogramVec(prometheus.HistogramOpts
 	Namespace: "callme",
 	Subsystem: "scheduleworker",
 	Name:      "schedule_leased_duration_milliseconds",
-	Help:      "Time taken to lease schedules",
+	Help:      "Time taken to lease schedules.",
 }, []string{"status"})
 
 // ScheduleExecutedCounts is a metric for the number of schedules executed.
