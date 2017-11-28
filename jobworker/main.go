@@ -48,12 +48,12 @@ func findAndExecuteWork(workerName string,
 	}
 	if !ok {
 		logger.Infof("%v: no job available", workerName)
-		metrics.JobLeaseDurations.WithLabelValues("none_available").Observe(float64(jobGetDuration))
 		metrics.JobLeaseCounts.WithLabelValues("none_available").Inc()
+		metrics.JobLeaseDurations.WithLabelValues("none_available").Observe(float64(jobGetDuration))
 		return
 	}
-	metrics.JobLeaseDurations.WithLabelValues("success").Observe(float64(jobGetDuration))
 	metrics.JobLeaseCounts.WithLabelValues("success").Inc()
+	metrics.JobLeaseDurations.WithLabelValues("success").Observe(float64(jobGetDuration))
 
 	logger.WithJob(job).Infof("%v: executing", workerName)
 
