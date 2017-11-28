@@ -31,6 +31,13 @@ func init() {
 	prometheus.MustRegister(metrics.JobExecutedDurations)
 	prometheus.MustRegister(metrics.JobLeaseCounts)
 	prometheus.MustRegister(metrics.JobLeaseDurations)
+
+	prometheus.MustRegister(metrics.ScheduleExecutedCounts)
+	prometheus.MustRegister(metrics.ScheduleExecutedDelay)
+	prometheus.MustRegister(metrics.ScheduleJobStartedCounts)
+	prometheus.MustRegister(metrics.ScheduleJobStartedDurations)
+	prometheus.MustRegister(metrics.ScheduleLeaseCounts)
+	prometheus.MustRegister(metrics.ScheduleLeaseDurations)
 }
 
 func main() {

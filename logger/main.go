@@ -2,6 +2,7 @@ package logger
 
 import (
 	"github.com/a-h/callme/data"
+	"github.com/a-h/callme/metrics"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -23,6 +24,7 @@ func Warnf(format string, args ...interface{}) {
 
 func Errorf(format string, args ...interface{}) {
 	log.Errorf(format, args...)
+	metrics.ErrorCounts.Inc()
 }
 
 func Fatal(args ...interface{}) {

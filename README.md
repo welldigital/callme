@@ -39,6 +39,8 @@ The system is unit tested, and also has different types of integration test. The
 
 ## Prometheus Metrics
 
+A Prometheus metric endpoint is opened at port 9090 by default, at the `/metrics` URL. To modify the listening port, set the `CALLME_PROMETHEUS_PORT` environment variable.
+
 ### Job Metrics
 
 * job_leased_total
@@ -71,31 +73,54 @@ The system is unit tested, and also has different types of integration test. The
 * schedule_job_started_duration_milliseconds
   * The amount of time taken to start jobs and mark the schedule as updated.
 
+### Troubleshooting
 
-## Can the callme process access the database to acquire leases?
-## What leases are currently valid and what processes are they assigned to?
-## How long was it since the lease was last used?
-## How many schedules have expired and should have been turned into jobs?
-## How long is it taking from a schedule expiring, to a job being created?
-## How long is it taking to execute jobs?
-## How long are jobs waiting in a queue?
-## How long is it taking from a schedule expiring, to a job being executed?
-## How many jobs are waiting to run?
-## Have many jobs have executed in a particular time period?
-## How many faults have occurred?
-## Schedule statuses
+Checklist for problems:
 
+* Can the callme process access the database to acquire leases?
+  * Check the `schedule_leased_total` and `job_leased_total` metrics for the error count.
+  * Check the logs for database connection errors.
+* Is there work to process?
+  * The `schedule_leased_total` and `job_leased_total` metrics have a dimension of `none_available` if there aren't.
+* Is the work being collected successfully?
+  * The `schedule_leased_total` and `job_leased_total` metrics have a dimension of `error`, which should be zero.
+  * There are also `schedule_leased_duration_milliseconds` and `job_leased_duration_milliseconds` metrics which track how long database operations are taking.
+* Are jobs being processed?
+  * The `job_executed_total` metric tells us how many jobs are processed. Check the `success` / `error` dimension though.
+* Are jobs taking a long time to process?
+  * The `job_executed_duration_milliseconds` metric records how long jobs are taking to execute.
+* Are jobs starting later than they should?
+  * The `job_executed_delay_milliseconds` metric records the delta between when jobs should have started, and when they did. If jobs are taking too long to start, you may wish to take action, e.g. increasing `CALLME_JOB_WORKER_COUNT` to process more on a single box, or increasing the performance of your database instance, depending on where the bottleneck is.
+* How long is it taking to send the SNS notification?
+  * The `job_executed_duration_milliseconds` metric tracks the duration.
+* Is there a problem marking jobs as complete resulting in jobs being processed twice?
+  * The `job_completed_total` metric tells us whether jobs are being completed in `success` or `error` states.
+* Are database operations slow?
+  * The `job_completed_duration_milliseconds` and `job_leased_duration_milliseconds` metrics record how long each database operation takes.
+* Are schedules being processed?
+  * The work should be completed succesfully (see `schedule_leased_total`), after that cron parsing counts are tracked by the `schedule_executed_total` metric.
+* Are schedules being processed fast enough?
+  * The `schedule_executed_delay_milliseconds` metric tracks how many milliseconds taken between when a schedule should have been executed, and when it did.
+* Are jobs being started based on schedules?
+  * The `schedule_job_started_total` metric tracks how many jobs were started from schedules.
+* How long is it taking to schedule a new job to start and update the schedule?
+  * The `schedule_job_started_duration_milliseconds` metric tracks how long it is taking to complete the schedule processing.
+* Are any workers logging errors?
+  * The `error_total` metric tracks the number of errors being logged by callme processes.
+
+## Schedule scenarios
+
+* Failed to get schedule
+ * Impact: Possible delay to scheduling jobs, track the `schedule_executed_delay_milliseconds` metric to see the impact.
 * Failed to parse cron
-  * The schedule lease lasts an hour, so in an hour it will be retried forever. Best to fix it. The API shouldn't have allowed an invalid cron expression, so there's likely been some human updates on the database.
+ * Impact: Cron will be retried forever every 30 minutes until database record is updated. 
 * Failed to update schedule and start a job
-  * The schedule update and job start is carried out within a transaction using the `sm_startjobandupdatecron` procedure, the operation will be retried when the lease expires (by default, an hour).
-
-|                         | Got lease                  | Failed to parse cron    |  Failed to mark complete    |
-| ----------------------- | -------------------------- | ----------------------------------------------------- |
-| Failed to parse         | A: No problem              | B: Job marked as errored, human intervention required |
-| Marked complete failed  | C: SNS will be sent again  | D: Will be retried again                              |
+ * Impact: The schedule update and job start is carried out within a transaction using the `sm_startjobandupdatecron` procedure, the operation will be retried by any schedule worker process when the lease expires (by default, 30 minutes), so the scheduled job will be deplayed.
 
 ## Job statuses
+
+* Failed to get job
+ * Impact: Possible delay to starting scheduled jobs, track the `job_executed_delay_milliseconds` metric to see the impact.
 
 |                         | Sent SNS OK                | Sent SNS failed                                       |
 | ----------------------- | -------------------------- | ----------------------------------------------------- |
@@ -106,7 +131,7 @@ The system is unit tested, and also has different types of integration test. The
 This is the normal usage scenario. Jobs with this status do not require action.
 
 ### B: Sending the SNS notification failed, and the job was marked as complete with an error
-Human intervention is required here. Several errors could be the case.
+Human intervention is required here, since the SNS notification may not have been sent for many reasons. Several errors could be the case:
 
   * The `callme` process lacked permission to write to the SNS topic.
     * Create an instance IAM role which allows the SNS topic to be written to and apply it to the instance running `callme`
@@ -124,6 +149,16 @@ The most likely scenario here is the backing database has become unavailable. In
 
 ### D: Couldn't send the SNS notification or mark it as complete
 This scenario is likely that after pulling a job from the database, all network connectivity was lost. As a result, the process won't be able to send notifications or mark it as complete. This is equivalent to a no-op.
+
+# Configuration values
+
+| Environment Variable          | Default               | Description                                           |
+|-------------------------------|-----------------------|-------------------------------------------------------|
+| CALLME_CONNECTION_STRING      | None, it's required   | The connection string to the database.                |
+| CALLME_SCHEDULE_WORKER_COUNT  | 1                     | Number of routines processing schedules               |
+| CALLME_JOB_WORKER_COUNT       | 1                     | Number of routines processing jobs.                   |
+| CALLME_LOCK_EXPIRY_MINUTES    | 30                    | Minutes a routine has to process a job or schedule.   |
+| CALLME_PROMETHEUS_PORT        | 9090                  | The port for the metrics HTTP endpoint                |
 
 # Development
 
