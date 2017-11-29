@@ -17,7 +17,8 @@ Schedule SNS or HTTP (Webhook) notifications to be sent on a repeating schedule,
    * `CREATE SCHEMA `callme` DEFAULT CHARACTER SET utf8 ;`
  * Set the `CALLME_CONNECTION_STRING` environment variable.
    * `export CALLME_CONNECTION_STRING='Server=localhost;Port=3306;Database=callme;Uid=root;Pwd=callme;Allow User Variables=true;multiStatements=true'`
- * Run the `callme` executable or Docker container.
+ * Run the `callme` executable directly or run the Docker container (`welldigital/callme`).
+  * `docker run welldigital/callme:latest`
  * Interact with the API to setup recurring notifications, or jobs at a specific point in time.
 
 # Testing
@@ -39,7 +40,7 @@ The system is unit tested, and also has different types of integration test. The
 
 ## Prometheus Metrics
 
-A Prometheus metric endpoint is opened at port 9090 by default, at the `/metrics` URL. To modify the listening port, set the `CALLME_PROMETHEUS_PORT` environment variable.
+A Prometheus metric endpoint is opened at port 6666 by default, at the `/metrics` URL. To modify the listening port, set the `CALLME_PROMETHEUS_PORT` environment variable.
 
 ### Job Metrics
 
@@ -158,7 +159,7 @@ This scenario is likely that after pulling a job from the database, all network 
 | CALLME_SCHEDULE_WORKER_COUNT  | 1                     | Number of routines processing schedules               |
 | CALLME_JOB_WORKER_COUNT       | 1                     | Number of routines processing jobs.                   |
 | CALLME_LOCK_EXPIRY_MINUTES    | 30                    | Minutes a routine has to process a job or schedule.   |
-| CALLME_PROMETHEUS_PORT        | 9090                  | The port for the metrics HTTP endpoint                |
+| CALLME_PROMETHEUS_PORT        | 6666                  | The port for the metrics HTTP endpoint                |
 | CALLME_MODE                   | sns                   | Whether to send SNS notifications (sns), or Web (web) |
 
 # Development
@@ -167,3 +168,7 @@ This scenario is likely that after pulling a job from the database, all network 
 
  * Uses https://github.com/mattes/migrate
  * Use `date -u +"%Y%m%d%H%M%S"` to generate an ISO date for naming the migration.
+
+## Building Docker container
+
+ * Run `make docker-build`, which outputs the `welldigital/callme:latest` container.

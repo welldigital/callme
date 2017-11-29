@@ -7,3 +7,10 @@ run-cmd:
 
 run-integration-test:
 	cd ./cmd/ && go build && cd ../harness && go run main.go
+
+docker-build:
+	cd ./cmd/ && GOOS=linux go build -o cmd_linux
+	docker build -t welldigital/callme . 
+
+docker-compose-up:
+	docker-compose up --build
