@@ -185,12 +185,14 @@ func (h *CountHandler) Receive() {
 			select {
 			case <-h.c:
 				h.Received++
-				logger.For(pkg, "main").Infof("received: %v", h.Received)
+				logger.For(pkg, "main").WithField("received", h.Received).Infof("received")
 			case <-h.stopper:
 				return
 			default:
 				// stop if we've hit the expected number of messages received
+				logger.For(pkg, "main").WithField("received", h.Received).Infof("received")
 				if h.Received >= h.Expected {
+					logger.For(pkg, "main").Infof("shutting down")
 					h.Shutdown()
 				}
 			}
