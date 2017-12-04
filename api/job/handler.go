@@ -2,7 +2,9 @@ package job
 
 import (
 	"encoding/json"
+	"errors"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -47,9 +49,10 @@ func (h *Handler) Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Validate the job.
-	if err = j.Validate(); err != nil {
+	if err = validateJob(j); err != nil {
 		logger.WithJob(pkg, "Post", j).WithError(err).Errorf("failed to validate job")
 		response.Error(err, w, http.StatusUnprocessableEntity)
+		return
 	}
 	// Start it.
 	j, err = h.JobStarter(j.When, j.ARN, j.Payload, nil)
@@ -59,6 +62,25 @@ func (h *Handler) Post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.JSON(j, w, http.StatusCreated)
+}
+
+func validateJob(j data.Job) error {
+	if j.JobID > 0 {
+		return errors.New("cannot post to an existing job")
+	}
+	if j.ARN == "" {
+		return errors.New("an ARN is required")
+	}
+	if len(j.ARN) > 2048 {
+		return errors.New("maximum length of the ARN is 2048 characters")
+	}
+	if len(j.Payload) > int(math.Pow(2, 24)-1) {
+		return errors.New("exceeded maximum length of payload")
+	}
+	if j.ScheduleID != nil {
+		return errors.New("cannot post to an existing schedule")
+	}
+	return nil
 }
 
 // Get gets a job by its id.

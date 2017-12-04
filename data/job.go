@@ -1,8 +1,6 @@
 package data
 
 import (
-	"errors"
-	"math"
 	"time"
 )
 
@@ -16,20 +14,6 @@ type Job struct {
 	When       time.Time
 	ARN        string
 	Payload    string
-}
-
-// Validate validates that the job could be stored in the backing store.
-func (j Job) Validate() error {
-	if j.ARN == "" {
-		return errors.New("an ARN is required")
-	}
-	if len(j.ARN) > 2048 {
-		return errors.New("maximum length of the ARN is 2048 characters")
-	}
-	if len(j.Payload) > int(math.Pow(2, 24)-1) {
-		return errors.New("exceeded maximum length of payload")
-	}
-	return nil
 }
 
 // A JobResponse records an execution of the Job.
