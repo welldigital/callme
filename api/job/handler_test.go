@@ -102,7 +102,6 @@ func TestDelete(t *testing.T) {
 		d              data.JobDeleter
 		r              *http.Request
 		expectedStatus int
-		skipBodyCheck  bool
 		expectedBody   string
 	}{
 		{
@@ -157,10 +156,8 @@ func TestDelete(t *testing.T) {
 		if err != nil {
 			t.Errorf("%s: unexpected error reading body: '%v'", test.name, err)
 		}
-		if !test.skipBodyCheck {
-			if test.expectedBody != string(actualBody) {
-				t.Errorf("%s: expected body '%v', got '%v'", test.name, test.expectedBody, string(actualBody))
-			}
+		if test.expectedBody != string(actualBody) {
+			t.Errorf("%s: expected body '%v', got '%v'", test.name, test.expectedBody, string(actualBody))
 		}
 	}
 }
@@ -171,7 +168,6 @@ func TestPost(t *testing.T) {
 		s              data.JobStarter
 		r              *http.Request
 		expectedStatus int
-		skipBodyCheck  bool
 		expectedBody   string
 	}{
 		{
@@ -305,10 +301,8 @@ func TestPost(t *testing.T) {
 		if err != nil {
 			t.Errorf("%s: unexpected error reading body: '%v'", test.name, err)
 		}
-		if !test.skipBodyCheck {
-			if test.expectedBody != string(actualBody) {
-				t.Errorf("%s: expected body '%v', got '%v'", test.name, test.expectedBody, string(actualBody))
-			}
+		if test.expectedBody != string(actualBody) {
+			t.Errorf("%s: expected body '%v', got '%v'", test.name, test.expectedBody, string(actualBody))
 		}
 	}
 }
