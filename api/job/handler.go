@@ -89,13 +89,14 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	id, hasID := vars["id"]
 	if !hasID {
+		logger.For(pkg, "Get").WithField("url", r.URL).Info("id not found")
 		http.NotFound(w, r)
 		return
 	}
 	jobID, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
 		logger.For(pkg, "Get").WithError(err).WithField("jobID", id).Errorf("failed to parse jobID")
-		response.ErrorString("could not parse jobID", w, http.StatusBadRequest)
+		response.ErrorString("failed to parse jobID", w, http.StatusBadRequest)
 		return
 	}
 	job, jobResp, jobOK, responseOK, err := h.JobAndResponseByIDGetter(jobID)
@@ -136,7 +137,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	ok, err := h.JobDeleter(jobID)
 	if err != nil {
 		logger.For(pkg, "Delete").WithError(err).WithField("jobID", jobID).Errorf("failed to delete job")
-		http.Error(w, "failed to delete job", http.StatusInternalServerError)
+		response.ErrorString("failed to delete job", w, http.StatusInternalServerError)
 		return
 	}
 	if !ok {

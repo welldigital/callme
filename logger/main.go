@@ -27,7 +27,17 @@ func WithCrontab(pkg string, fn string, ct data.Crontab) *log.Entry {
 func WithJob(pkg string, fn string, job data.Job) *log.Entry {
 	return For(pkg, fn).
 		WithField("JobID", job.JobID).
-		WithField("ARN", job.ARN).
+		WithField("ARN", limit(job.ARN, 100, 10)).
 		WithField("ScheduleID", job.ScheduleID).
 		WithField("When", job.When)
+}
+
+func limit(s string, ifBiggerThan, max int) string {
+	if max > ifBiggerThan {
+		max = ifBiggerThan
+	}
+	if len(s) > ifBiggerThan {
+		return s[:max] + "..."
+	}
+	return s
 }
