@@ -140,6 +140,43 @@ func TestJobManager(t *testing.T) {
 		if r.JobResponseID != 1 {
 			t.Errorf("expected JobResponseID=1, but got %v", r.JobResponseID)
 		}
+
+		// Create a job, then delete it.
+		job3, err := jm.StartJob(time.Now().UTC().Add(time.Hour-24), "testarn", "testpayload", nil)
+		if err != nil {
+			t.Errorf("expected to be able to start job3, but got err: %v", err)
+		}
+		ok, err := jm.DeleteJob(job3.JobID)
+		if err != nil {
+			t.Errorf("expected to be able to delete job3, but got err: %v", err)
+		}
+		if !ok {
+			t.Errorf("expected to be able to delete job3, but was unable to")
+		}
+
+		// Create a job, start it, then check we're unable to delete it.
+		job4, err := jm.StartJob(time.Now().UTC().Add(time.Hour*-24), "testarn", "testpayload", nil)
+		if err != nil {
+			t.Errorf("expected to be able to start job4, but got err: %v", err)
+		}
+		job4, ok, err = jm.GetJob("jobmanagertest_lock", 60)
+		if err != nil {
+			t.Errorf("expected to be able to get job4, but got err: %v", err)
+		}
+		if !ok {
+			t.Fatal("expected to be able to lock job4, but was unable to")
+		}
+		err = jm.CompleteJob(job4.JobID, "testresp", nil)
+		if err != nil {
+			t.Errorf("expected to be able to complete job4, but got err: %v", err)
+		}
+		ok, err = jm.DeleteJob(job4.JobID)
+		if err != nil {
+			t.Errorf("expected to be able to delete job4 with an error, but got err: %v", err)
+		}
+		if ok {
+			t.Errorf("expected to be unable to delete job4 (because it's complete), but was able to")
+		}
 	}
 }
 

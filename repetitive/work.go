@@ -16,6 +16,8 @@ func Work(name string, worker Worker,
 	work(name, worker, sleep, func() { time.Sleep(sleep) }, stopper)
 }
 
+const pkg = "github.com/a-h/callme/repetitive"
+
 func work(name string, worker Worker,
 	sleepFor time.Duration,
 	sleep func(),
@@ -23,19 +25,19 @@ func work(name string, worker Worker,
 	for {
 		select {
 		default:
-			logger.Infof("%s: executing worker", name)
+			logger.For(pkg, "work").WithField("workerName", name).Info("executing worker")
 			workDone, err := worker()
 			if err != nil {
-				logger.Errorf("%s: worker returned error: %v", name, err)
+				logger.For(pkg, "work").WithField("workerName", name).WithError(err).Error("worker returned error")
 				sleep()
 				continue
 			}
 			if !workDone {
-				logger.Infof("%s: work complete, sleeping for %v, next work at %v", name, sleepFor, time.Now().UTC().Add(sleepFor))
+				logger.For(pkg, "work").WithField("workerName", name).Infof("work complete, sleeping for %v, next work at %v", sleepFor, time.Now().UTC().Add(sleepFor))
 				sleep()
 			}
 		case <-stopper:
-			logger.Infof("%s: stop signal received", name)
+			logger.For(pkg, "work").WithField("workerName", name).Info("stop signal received")
 			return
 		}
 	}

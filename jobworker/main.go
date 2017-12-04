@@ -15,6 +15,7 @@ import (
 
 const leaseName = "job"
 const defaultTimeout = time.Minute * 5
+const pkg = "github.com/a-h/callme/jobworker"
 
 // An Executor executes work.
 type Executor func(arn string, payload string) (resp string, err error)
@@ -41,13 +42,13 @@ func findAndExecuteWork(workerName string,
 	job, ok, err := jobGetter(workerName, lockExpiryMinutes)
 	jobGetDuration := time.Since(jobGetStart) / time.Millisecond
 	if err != nil {
-		logger.Errorf("%v: error getting job: %v", workerName, err)
+		logger.For(pkg, "findAndExecuteWork").WithField("workerName", workerName).WithError(err).Error("failed to get job")
 		metrics.JobLeaseCounts.WithLabelValues("error").Inc()
 		metrics.JobLeaseDurations.WithLabelValues("error").Observe(float64(jobGetDuration))
 		return
 	}
 	if !ok {
-		logger.Infof("%v: no job available", workerName)
+		logger.For(pkg, "findAndExecuteWork").WithField("workerName", workerName).Info("no job available")
 		metrics.JobLeaseCounts.WithLabelValues("none_available").Inc()
 		metrics.JobLeaseDurations.WithLabelValues("none_available").Observe(float64(jobGetDuration))
 		return
@@ -55,7 +56,7 @@ func findAndExecuteWork(workerName string,
 	metrics.JobLeaseCounts.WithLabelValues("success").Inc()
 	metrics.JobLeaseDurations.WithLabelValues("success").Observe(float64(jobGetDuration))
 
-	logger.WithJob(job).Infof("%v: executing", workerName)
+	logger.For(pkg, "findAndExecuteWork").WithField("workerName", workerName).Info("executing")
 
 	// Attempt to execute the work.
 	var resp string
@@ -66,12 +67,12 @@ func findAndExecuteWork(workerName string,
 		resp, ee = e(job.ARN, job.Payload)
 		jobExecuteDuration := time.Since(jobExecuteStart) / time.Millisecond
 		if ee == nil {
-			logger.WithJob(job).Infof("%v: success", workerName)
+			logger.WithJob(pkg, "findAndExecuteWork", job).WithField("workerName", workerName).Info("success")
 			metrics.JobExecutedCounts.WithLabelValues("success").Inc()
 			metrics.JobExecutedDurations.WithLabelValues("success").Observe(float64(jobExecuteDuration))
 			metrics.JobExecutedDelay.Observe(float64(jobDelay))
 		} else {
-			logger.WithJob(job).Warnf("%v: failure, but may retry, err: %v", workerName, ee)
+			logger.WithJob(pkg, "findAndExecuteWork", job).WithField("workerName", workerName).WithError(ee).Warn("failure, but may retry")
 			metrics.JobExecutedCounts.WithLabelValues("error").Inc()
 			metrics.JobExecutedDurations.WithLabelValues("error").Observe(float64(jobExecuteDuration))
 		}
@@ -82,7 +83,7 @@ func findAndExecuteWork(workerName string,
 	bo.MaxElapsedTime = timeout
 	executionError := backoff.Retry(execute, bo)
 	if executionError != nil {
-		logger.WithJob(job).Errorf("%v: retries exceeded, logging error: %v", workerName, executionError)
+		logger.WithJob(pkg, "findAndExecuteWork", job).WithField("workerName", workerName).WithError(executionError).Error("retries exceeded")
 	} else {
 		workDone = true
 	}
@@ -93,11 +94,11 @@ func findAndExecuteWork(workerName string,
 		jce := jobCompleter(job.JobID, resp, executionError)
 		jobCompleteDuration := time.Since(jobCompleteStart) / time.Millisecond
 		if jce == nil {
-			logger.WithJob(job).Infof("%v: job marked as complete successfully", workerName)
+			logger.WithJob(pkg, "findAndExecuteWork", job).WithField("workerName", workerName).Info("marked as complete successfully")
 			metrics.JobCompletedCounts.WithLabelValues("success").Inc()
 			metrics.JobCompletedDurations.WithLabelValues("success").Observe(float64(jobCompleteDuration))
 		} else {
-			logger.WithJob(job).Warnf("%v: job complete failure, but may retry", workerName)
+			logger.WithJob(pkg, "findAndExecuteWork", job).WithField("workerName", workerName).WithError(jce).Warn("marked as complete failed, but may retry")
 			metrics.JobCompletedCounts.WithLabelValues("error").Inc()
 			metrics.JobCompletedDurations.WithLabelValues("error").Observe(float64(jobCompleteDuration))
 		}
@@ -108,7 +109,7 @@ func findAndExecuteWork(workerName string,
 	bo.MaxElapsedTime = timeout
 	completionError := backoff.Retry(complete, bo)
 	if completionError != nil {
-		logger.WithJob(job).Errorf("%v: job complete retries exceeded, error: %v", completionError, workerName)
+		logger.WithJob(pkg, "findAndExecuteWork", job).WithField("workerName", workerName).WithError(completionError).Error("job complete retries exceeded")
 	}
 
 	err = mergeErrors(workerName, executionError, completionError)

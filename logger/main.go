@@ -2,7 +2,6 @@ package logger
 
 import (
 	"github.com/a-h/callme/data"
-	"github.com/a-h/callme/metrics"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -10,29 +9,14 @@ func init() {
 	log.SetFormatter(&log.JSONFormatter{})
 }
 
-func Infof(format string, args ...interface{}) {
-	log.Infof(format, args...)
-}
-
-func Debugf(format string, args ...interface{}) {
-	log.Debugf(format, args...)
-}
-
-func Warnf(format string, args ...interface{}) {
-	log.Warnf(format, args...)
-}
-
-func Errorf(format string, args ...interface{}) {
-	log.Errorf(format, args...)
-	metrics.ErrorCounts.Inc()
-}
-
-func Fatal(args ...interface{}) {
-	log.Fatal(args...)
-}
-
-func WithCrontab(ct data.Crontab) *log.Entry {
+func For(pkg string, fn string) *log.Entry {
 	return log.
+		WithField("pkg", pkg).
+		WithField("fn", fn)
+}
+
+func WithCrontab(pkg string, fn string, ct data.Crontab) *log.Entry {
+	return For(pkg, fn).
 		WithField("CrontabID", ct.CrontabID).
 		WithField("Crontab", ct.Crontab).
 		WithField("LastUpdated", ct.LastUpdated).
@@ -40,8 +24,8 @@ func WithCrontab(ct data.Crontab) *log.Entry {
 		WithField("ScheduleID", ct.ScheduleID)
 }
 
-func WithJob(job data.Job) *log.Entry {
-	return log.
+func WithJob(pkg string, fn string, job data.Job) *log.Entry {
+	return For(pkg, fn).
 		WithField("JobID", job.JobID).
 		WithField("ARN", job.ARN).
 		WithField("ScheduleID", job.ScheduleID).

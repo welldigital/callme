@@ -18,7 +18,7 @@ START TRANSACTION;
 
 	CREATE TABLE `jobresponse` (
 	  `idjobresponse` INT NOT NULL AUTO_INCREMENT,
-	  `idjobid` INT NOT NULL,
+	  `idjob` INT NOT NULL,
 	  `time` DATETIME(6) NOT NULL,
 	  `response` MEDIUMTEXT NOT NULL,
 	  `iserror` BIT NOT NULL,
@@ -67,7 +67,7 @@ START TRANSACTION;
 
 	ALTER TABLE jobresponse
 		ADD CONSTRAINT fk_jobresponse_idjob
-		FOREIGN KEY (idjobid) REFERENCES `job`(idjob);
+		FOREIGN KEY (idjob) REFERENCES `job`(idjob);
 
 	ALTER TABLE crontab 
 		ADD CONSTRAINT fk_crontab_idschedule 

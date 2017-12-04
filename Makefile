@@ -1,16 +1,17 @@
 run-mysql:
 	docker start mysql-callme || docker run --rm --name mysql-callme -p 3306:3306 -e MYSQL_ROOT_PASSWORD=callme -d mysql:5.6
 
-run-cmd:
-	# Server=localhost;Port=3306;Database=callme;Uid=root;Pwd=callme;AllowUserVariables=true;multiStatements=true;Charset=utf8
-	cd ./cmd/ && CALLME_CONNECTION_STRING='root:callme@tcp(localhost:3306)/callme?parseTime=true&multiStatements=true' go run main.go
+run-worker:
+	cd ./worker/ && CALLME_CONNECTION_STRING='root:callme@tcp(localhost:3306)/callme?parseTime=true&multiStatements=true' go run main.go
 
 run-integration-test:
-	cd ./cmd/ && go build && cd ../harness && go run main.go
+	cd ./worker/ && go build && cd ../harness && go run main.go
 
 docker-build:
-	cd ./cmd/ && GOOS=linux go build -o cmd_linux
-	docker build -t welldigital/callme . 
+	cd ./worker/ && GOOS=linux go build -o worker_linux
+	docker build -t welldigital/callme:worker-latest ./worker/. 
+	cd ./api/ && GOOS=linux go build -o api_linux
+	docker build -t welldigital/callme:api-latest ./api/. 
 
 docker-compose-up:
 	docker-compose up --build

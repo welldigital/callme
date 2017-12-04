@@ -60,9 +60,9 @@ func (m JobManager) GetAvailableJobCount() (int, error) {
 	defer db.Close()
 
 	rows, err := db.Query("SELECT COUNT(*) FROM `job` j " +
-		"LEFT JOIN `jobresponse` jr on jr.idjobid = j.idjob " +
+		"LEFT JOIN `jobresponse` jr on jr.idjob = j.idjob " +
 		"WHERE " +
-		"jr.idjobid IS NULL AND " +
+		"jr.idjob IS NULL AND " +
 		"j.`when` <= utc_timestamp()")
 	if err != nil {
 		return count, err
@@ -107,11 +107,11 @@ func (m JobManager) GetJobResponse(jobID int64) (j data.Job, r data.JobResponse,
 
 	rows, err := db.Query("SELECT "+
 		"j.idjob, j.idschedule, j.when, j.arn, j.payload, "+
-		"jr.idjobresponse, jr.idjobid, jr.time, jr.response, jr.iserror, jr.error "+
+		"jr.idjobresponse, jr.idjob, jr.time, jr.response, jr.iserror, jr.error "+
 		"FROM `job` j "+
-		"LEFT JOIN jobresponse jr on jr.idjobid = j.idjob "+
+		"LEFT JOIN jobresponse jr on jr.idjob = j.idjob "+
 		"WHERE "+
-		"jr.idjobid = ?", jobID)
+		"jr.idjob = ?", jobID)
 	if err != nil {
 		return
 	}
@@ -138,7 +138,7 @@ func convertMySQLBoolean(s string) bool {
 // CompleteJob marks a job as complete.
 func (m JobManager) CompleteJob(jobID int64, resp string, jobError error) error {
 	statement := "INSERT INTO `jobresponse` " +
-		"(`idjobid`, `time`, `response`, `iserror`, `error`) " +
+		"(`idjob`, `time`, `response`, `iserror`, `error`) " +
 		"VALUES " +
 		"(?, utc_timestamp(), ?, ?, ?);"
 	db, err := sql.Open("mysql", m.ConnectionString)
@@ -162,4 +162,20 @@ func (m JobManager) CompleteJob(jobID int64, resp string, jobError error) error 
 	}
 	_, err = stmt.Exec(jobID, resp, isError, errorString)
 	return err
+}
+
+// DeleteJob deletes a job.
+func (m JobManager) DeleteJob(jobID int64) (ok bool, err error) {
+	db, err := sql.Open("mysql", m.ConnectionString)
+	if err != nil {
+		return
+	}
+	defer db.Close()
+	result, err := db.Exec("call jm_deletejob(?)", jobID)
+	if err != nil {
+		return
+	}
+	affected, err := result.RowsAffected()
+	ok = affected > 0
+	return
 }

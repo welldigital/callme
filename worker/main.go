@@ -24,6 +24,8 @@ import (
 	"github.com/a-h/callme/mysql"
 )
 
+const pkg = "github.com/a-h/callme/worker"
+
 func init() {
 	prometheus.MustRegister(metrics.JobCompletedCounts)
 	prometheus.MustRegister(metrics.JobCompletedDurations)
@@ -44,7 +46,7 @@ func init() {
 func main() {
 	connectionString := os.Getenv("CALLME_CONNECTION_STRING")
 	if connectionString == "" {
-		logger.Errorf("cmd.main: missing connection string environment variable (CALLME_CONNECTION_STRING)")
+		logger.For(pkg, "main").Error("missing connection string environment variable (CALLME_CONNECTION_STRING)")
 		os.Exit(-1)
 	}
 	scheduleWorkerCount := getIntegerSetting("CALLME_SCHEDULE_WORKER_COUNT", 1)
@@ -55,16 +57,20 @@ func main() {
 	var executor jobworker.Executor
 	switch os.Getenv("CALLME_MODE") {
 	case "web":
-		logger.Infof("cmd.main: using web execution mode")
+		logger.For(pkg, "main").Info("using web execution mode")
 		executor = web.Execute
 	case "sns":
 	default:
-		logger.Infof("cmd.main: using SNS (default) execution mode")
+		logger.For(pkg, "main").Info("using SNS (default) execution mode")
 		executor = sns.Execute
 	}
 
 	totalProcesses := scheduleWorkerCount + jobWorkerCount
-	logger.Infof("cmd.main: starting %v processes - %v schedule workers and %v job workers", totalProcesses, scheduleWorkerCount, jobWorkerCount)
+	logger.For(pkg, "main").
+		WithField("totalProcessCount", totalProcesses).
+		WithField("scheduleWorkerCount", scheduleWorkerCount).
+		WithField("jobWorkerCount", jobWorkerCount).
+		Info("starting processes")
 
 	// Start serving metrics.
 	go func() {
@@ -88,28 +94,28 @@ func main() {
 		mm := mysql.NewMigrationManager(connectionString)
 		err := mm.UpdateSchema()
 		if err != nil {
-			logger.Errorf("cmd.main: failed to update schema, but will retry again, err: %v", err)
+			logger.For(pkg, "main").WithError(err).Warn("failed to update schema, but will retry again")
 		}
 		return err
 	}
 
-	logger.Infof("cmd.main: checking database version and upgrading")
+	logger.For(pkg, "main").Info("checking database version and upgrading")
 
 	bo := backoff.NewExponentialBackOff()
 	bo.MaxElapsedTime = time.Minute * 5
 	executionError := backoff.Retry(schemaUpdate, bo)
 	if executionError != nil {
-		logger.Errorf("cmd.main: update schema retry timeout exceeded, logging error: %v", executionError)
+		logger.For(pkg, "main").WithError(executionError).Warn("update schema retry timeout exceeded")
 		os.Exit(-1)
 	}
-	logger.Infof("cmd.main: updated schema, continuing")
+	logger.For(pkg, "main").Info("updated schema, continuing")
 
 	hostName, _ := os.Hostname()
 	nodeName := fmt.Sprintf("callme_%v_%v", hostName, os.Getpid())
 
 	waiter := make(chan bool, totalProcesses)
 
-	logger.Infof("cmd.main: starting up schedulers and job workers")
+	logger.For(pkg, "main").Info("starting up schedulers and job workers")
 
 	for i := 0; i < jobWorkerCount; i++ {
 		go func(j int) {
@@ -138,24 +144,24 @@ func main() {
 		waitForUpTo(50)
 	}
 
-	logger.Infof("cmd.main: all processes started")
+	logger.For(pkg, "main").Info("all processes started")
 	for i := 0; i < totalProcesses; i++ {
 		<-waiter
-		logger.Infof("cmd.main: shut down process %v of %v", i+1, totalProcesses)
+		logger.For(pkg, "main").Infof("shut down process %v of %v", i+1, totalProcesses)
 	}
-	logger.Infof("cmd.main: exiting application")
+	logger.For(pkg, "main").Info("exiting application")
 }
 
 func getIntegerSetting(n string, def int) int {
 	str := os.Getenv(n)
 	if str == "" {
-		logger.Infof("cmd.main: %v environment variable not found, defaulting to %v", n, def)
+		logger.For(pkg, "getIntegerSetting").WithField("env", n).Info("environment variable not found, defaulting to %v", def)
 		return def
 	}
 
 	i, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {
-		logger.Warnf("cmd.main: %v environment variable: '%v' could not be parsed, defaulting to %v", n, str, def)
+		logger.For(pkg, "getIntegerSetting").WithField("env", n).WithField("val", str).Warn("environment variable could not be pasrsed, defaulting to %v", def)
 		return def
 	}
 	return int(i)

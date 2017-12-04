@@ -10,10 +10,10 @@ BEGIN
 			utc_timestamp(),
 			TIMESTAMPADD(MINUTE, lockExpiryMinutes, utc_timestamp())
 		FROM `job` j
-			LEFT JOIN jobresponse jr ON jr.idjobid = j.idjob
+			LEFT JOIN jobresponse jr ON jr.idjob = j.idjob
 			LEFT JOIN joblease jl ON jl.idjob = j.idjob
 		WHERE
-			jr.idjobid IS NULL AND
+			jr.idjob IS NULL AND
 			j.when <= utc_timestamp() AND
 			((jl.idjoblease IS NULL) OR (jl.until < utc_timestamp()))
 		ORDER BY j.when ASC

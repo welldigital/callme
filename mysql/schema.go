@@ -62,7 +62,7 @@ type MigrationLogger struct {
 
 // Printf provides a printf function.
 func (ml MigrationLogger) Printf(format string, v ...interface{}) {
-	logger.Infof(format, v...)
+	logger.For("github.com/a-h/callme/mysql/migrations", "mysql").Infof(format, v...)
 }
 
 // Verbose always returns true.

@@ -15,10 +15,15 @@ scrape_configs:
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.
     
-  - job_name: 'cmd'
+  - job_name: 'callme'
     dns_sd_configs:
     - names:
-      - 'cmd'
+      - 'worker'
       refresh_interval: 10s
       type: A
       port: 6666
+      - 'api'
+      refresh_interval: 10s
+      type: A
+      port: 7777
+

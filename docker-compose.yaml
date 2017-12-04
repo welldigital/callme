@@ -1,9 +1,18 @@
 version: '3'
 
 services:
-  cmd:
-    build: .
-    image: "welldigital/callme:latest"
+  api:
+    build: ./api/.
+    image: "welldigital/callme:api-latest"
+    ports: 
+      - "7777:7777"
+    environment:
+      - CALLME_CONNECTION_STRING=root:callme@tcp(db:3306)/callme?parseTime=true&multiStatements=true
+    depends_on:
+      - "db"
+  worker:
+    build: ./worker/.
+    image: "welldigital/callme:worker-latest"
     ports: 
       - "6666:6666"
     environment:
@@ -12,7 +21,7 @@ services:
       - "db"
   db:
     image: "mysql:5.6"
-    expose:  
+    expose:
       - "3306"
     ports:
       - "6612:3306"
@@ -26,9 +35,3 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus/:/etc/prometheus/:ro
-    #environment:
-      # "-config.file=/etc/prometheus/prometheus.yml", \
-      # "-storage.local.path=/prometheus", \
-      # "-web.console.templates=/etc/prometheus/consoles", \
-      # "-web.console.libraries=/etc/prometheus/console_libraries", \
-      # "-web.external-url=http://localhost:9090/prometheus" ]

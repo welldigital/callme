@@ -11,6 +11,8 @@ import (
 	"github.com/a-h/callme/data"
 )
 
+const pkg = "github.com/a-h/callme/scheduleworker"
+
 // NewScheduleWorker creates a worker for the repetitive.Work function which processes schedules and queues any required jobs.
 func NewScheduleWorker(workerName string,
 	lockExpiryMinutes int,
@@ -31,13 +33,13 @@ func findAndExecuteWork(workerName string,
 	sc, ok, err := scheduleGetter(workerName, lockExpiryMinutes)
 	scheduleGetDuration := time.Since(scheduleGetStart) / time.Millisecond
 	if err != nil {
-		logger.Errorf("%v: failed to get schedule crontab with error: %v", workerName, err)
+		logger.For(pkg, "findAndExecuteWork").WithField("workerName", workerName).WithError(err).Error("failed to get schedule crontab")
 		metrics.ScheduleLeaseCounts.WithLabelValues("error").Inc()
 		metrics.ScheduleLeaseDurations.WithLabelValues("error").Observe(float64(scheduleGetDuration))
 		return
 	}
 	if !ok {
-		logger.Infof("%v: no crontabs to update", workerName)
+		logger.For(pkg, "findAndExecuteWork").WithField("workerName", workerName).Info("no crontabs to update")
 		metrics.ScheduleLeaseCounts.WithLabelValues("none_available").Inc()
 		metrics.ScheduleLeaseDurations.WithLabelValues("none_available").Observe(float64(scheduleGetDuration))
 		return
@@ -47,7 +49,10 @@ func findAndExecuteWork(workerName string,
 
 	c, err := cron.Parse(sc.Crontab.Crontab)
 	if err != nil {
-		logger.WithCrontab(sc.Crontab).Errorf("%v: skipping crontab: failed to parse: '%v'", workerName, sc.Crontab.Crontab)
+		logger.WithCrontab(pkg, "findAndExecuteWork", sc.Crontab).
+			WithField("workerName", workerName).
+			WithError(err).
+			Error("failed to parse crontab, skipping")
 		metrics.ScheduleExecutedCounts.WithLabelValues("error").Inc()
 		return
 	}
@@ -61,7 +66,7 @@ func findAndExecuteWork(workerName string,
 	jobID, err := scheduledJobStarter(sc.Crontab.CrontabID, sc.Schedule.ScheduleID, sc.CrontabLeaseID, newNext)
 	scheduledJobStartDuration := time.Since(scheduledJobStartTime) / time.Millisecond
 	if err != nil || jobID == 0 {
-		logger.WithCrontab(sc.Crontab).Errorf("%v: failed to start job and update cron: %v", workerName, err)
+		logger.For(pkg, "findAndExecuteWork").WithField("workerName", workerName).WithError(err).Error("failed to start job and update cron")
 		metrics.ScheduleJobStartedCounts.WithLabelValues("error").Inc()
 		metrics.ScheduleJobStartedDurations.WithLabelValues("error").Observe(float64(scheduledJobStartDuration))
 		workDone = true
