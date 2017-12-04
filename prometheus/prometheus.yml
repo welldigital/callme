@@ -11,19 +11,9 @@ global:
 # A scrape configuration containing exactly one endpoint to scrape:
 # Here it's Prometheus itself.
 scrape_configs:
-  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
-    # metrics_path defaults to '/metrics'
-    # scheme defaults to 'http'.
-    
-  - job_name: 'callme'
-    dns_sd_configs:
-    - names:
-      - 'worker'
-      refresh_interval: 10s
-      type: A
-      port: 6666
-      - 'api'
-      refresh_interval: 10s
-      type: A
-      port: 7777
-
+- job_name: 'callme_worker'
+  static_configs:
+  - targets: ['worker:6666']
+- job_name: 'callme_api'
+  static_configs:
+  - targets: ['api:7777']
