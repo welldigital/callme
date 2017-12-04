@@ -3,8 +3,8 @@ package mysql
 import (
 	"database/sql"
 
-	"github.com/a-h/callme/logger"
-	"github.com/a-h/callme/mysql/migrations"
+	"github.com/welldigital/callme/logger"
+	"github.com/welldigital/callme/mysql/migrations"
 	"github.com/mattes/migrate"
 	"github.com/mattes/migrate/database/mysql"
 	"github.com/mattes/migrate/source"
@@ -62,7 +62,7 @@ type MigrationLogger struct {
 
 // Printf provides a printf function.
 func (ml MigrationLogger) Printf(format string, v ...interface{}) {
-	logger.For("github.com/a-h/callme/mysql/migrations", "mysql").Infof(format, v...)
+	logger.For("github.com/welldigital/callme/mysql/migrations", "mysql").Infof(format, v...)
 }
 
 // Verbose always returns true.

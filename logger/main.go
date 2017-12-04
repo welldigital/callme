@@ -1,7 +1,7 @@
 package logger
 
 import (
-	"github.com/a-h/callme/data"
+	"github.com/welldigital/callme/data"
 	log "github.com/sirupsen/logrus"
 )
 

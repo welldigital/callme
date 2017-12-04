@@ -10,14 +10,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/a-h/callme/api/job"
-	"github.com/a-h/callme/logger"
-	"github.com/a-h/callme/mysql"
+	"github.com/welldigital/callme/api/job"
+	"github.com/welldigital/callme/logger"
+	"github.com/welldigital/callme/mysql"
 	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-const pkg = "github.com/a-h/callme/api"
+const pkg = "github.com/welldigital/callme/api"
 
 func main() {
 	sigs := make(chan os.Signal)

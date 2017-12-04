@@ -11,14 +11,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/a-h/callme/mysql"
+	"github.com/welldigital/callme/mysql"
 
-	"github.com/a-h/callme/logger"
+	"github.com/welldigital/callme/logger"
 
 	"net/http/pprof"
 )
 
-const pkg = "github.com/a-h/callme/harness"
+const pkg = "github.com/welldigital/callme/harness"
 
 func main() {
 	sigs := make(chan os.Signal)

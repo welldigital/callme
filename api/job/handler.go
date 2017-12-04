@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/a-h/callme/api/response"
-	"github.com/a-h/callme/data"
-	"github.com/a-h/callme/logger"
+	"github.com/welldigital/callme/api/response"
+	"github.com/welldigital/callme/data"
+	"github.com/welldigital/callme/logger"
 	"github.com/gorilla/mux"
 )
 
@@ -30,7 +30,7 @@ func New(getter data.JobAndResponseByIDGetter, starter data.JobStarter, deleter 
 	}
 }
 
-const pkg = "github.com/a-h/callme/api/job/handler"
+const pkg = "github.com/welldigital/callme/api/job/handler"
 
 // Post handles the creation of new jobs.
 func (h *Handler) Post(w http.ResponseWriter, r *http.Request) {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/a-h/callme/data"
+	"github.com/welldigital/callme/data"
 )
 
 const lockExpiryMins = 5

@@ -3,7 +3,7 @@ package mysql
 import (
 	"testing"
 
-	"github.com/a-h/callme/mysql/migrations"
+	"github.com/welldigital/callme/mysql/migrations"
 )
 
 func TestThatBinDataIsPresent(t *testing.T) {

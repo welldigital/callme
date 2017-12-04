@@ -3,15 +3,15 @@ package scheduleworker
 import (
 	"time"
 
-	"github.com/a-h/callme/logger"
-	"github.com/a-h/callme/metrics"
-	"github.com/a-h/callme/repetitive"
+	"github.com/welldigital/callme/logger"
+	"github.com/welldigital/callme/metrics"
+	"github.com/welldigital/callme/repetitive"
 	cron "gopkg.in/robfig/cron.v2"
 
-	"github.com/a-h/callme/data"
+	"github.com/welldigital/callme/data"
 )
 
-const pkg = "github.com/a-h/callme/scheduleworker"
+const pkg = "github.com/welldigital/callme/scheduleworker"
 
 // NewScheduleWorker creates a worker for the repetitive.Work function which processes schedules and queues any required jobs.
 func NewScheduleWorker(workerName string,

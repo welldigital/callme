@@ -3,7 +3,7 @@ package repetitive
 import (
 	"time"
 
-	"github.com/a-h/callme/logger"
+	"github.com/welldigital/callme/logger"
 )
 
 // Worker is a function which carries out some work.
@@ -16,7 +16,7 @@ func Work(name string, worker Worker,
 	work(name, worker, sleep, func() { time.Sleep(sleep) }, stopper)
 }
 
-const pkg = "github.com/a-h/callme/repetitive"
+const pkg = "github.com/welldigital/callme/repetitive"
 
 func work(name string, worker Worker,
 	sleepFor time.Duration,

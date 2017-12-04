@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/a-h/callme/data"
+	"github.com/welldigital/callme/data"
 )
 
 func TestScheduleManager(t *testing.T) {
