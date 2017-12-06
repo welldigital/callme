@@ -10,11 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/welldigital/callme/api/response"
+
+	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/welldigital/callme/api/job"
 	"github.com/welldigital/callme/logger"
 	"github.com/welldigital/callme/mysql"
-	"github.com/gorilla/mux"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 const pkg = "github.com/welldigital/callme/api"
@@ -33,11 +35,13 @@ func main() {
 	prometheusPort := getIntegerSetting("CALLME_PROMETHEUS_PORT", 7777)
 
 	go func() {
+		logger.For(pkg, "main").Info("starting prometheus listener")
 		r := http.NewServeMux()
 		r.Handle("/metrics", prometheus.Handler())
 		http.ListenAndServe(fmt.Sprintf(":%v", prometheusPort), r)
 	}()
 
+	logger.For(pkg, "main").Info("creating job handler and router")
 	jm := mysql.NewJobManager(connectionString)
 
 	jh := job.New(jm.GetJobResponse, jm.StartJob, jm.DeleteJob)
@@ -53,6 +57,7 @@ func main() {
 
 	// Start serving
 	go func() {
+		logger.For(pkg, "main").Info("starting web server")
 		log.Fatal(s.ListenAndServe())
 	}()
 
@@ -84,8 +89,18 @@ func getIntegerSetting(n string, def int) int {
 
 func createRouter(jh *job.Handler) *mux.Router {
 	r := mux.NewRouter()
-	r.Path("/job/").Methods(http.MethodPost).HandlerFunc(jh.Post)
+	r.NotFoundHandler = NotFoundHandler{}
+	r.Path("/job").Methods(http.MethodPost).HandlerFunc(jh.Post)
 	r.Path("/job/{id}").Methods(http.MethodGet).HandlerFunc(jh.Get)
 	r.Path("/job/{id}/delete").Methods(http.MethodPost).HandlerFunc(jh.Delete)
 	return r
+}
+
+// NotFoundHandler is the 404 handler for the API.
+type NotFoundHandler struct {
+}
+
+func (nfh NotFoundHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logger.For(pkg, "NotFoundHandler").WithField("url", r.URL).Infof("not found")
+	response.ErrorString("404: not found", w, http.StatusNotFound)
 }

@@ -6,6 +6,7 @@ services:
     image: "welldigital/callme:api-latest"
     ports: 
       - "7777:7777"
+      - "8080:8080"
     environment:
       - CALLME_CONNECTION_STRING=root:callme@tcp(db:3306)/callme?parseTime=true&multiStatements=true
     depends_on:

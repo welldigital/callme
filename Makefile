@@ -15,3 +15,5 @@ docker-build:
 
 docker-compose-up:
 	docker-compose up --build
+
+docker-compose-build: docker-build docker-compose-up

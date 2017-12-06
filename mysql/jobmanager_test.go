@@ -29,7 +29,7 @@ func TestJobManager(t *testing.T) {
 			ScheduleID: nil,
 		}
 
-		// Start job without a shecedule.
+		// Start job without a schedule.
 		actualJob1, err := jm.StartJob(job1.When, job1.ARN, job1.Payload, job1.ScheduleID)
 		if err != nil {
 			t.Fatalf("without schedule: error starting job: %v", err)

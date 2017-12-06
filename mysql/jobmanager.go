@@ -4,8 +4,9 @@ import (
 	"database/sql"
 	"time"
 
+	_ "github.com/go-sql-driver/mysql"       // Requires MySQL
+	gomysql "github.com/go-sql-driver/mysql" // Requires MySQL
 	"github.com/welldigital/callme/data"
-	_ "github.com/go-sql-driver/mysql" // Requires MySQL
 )
 
 // JobManager provides features to manage jobs using MySQL.
@@ -105,13 +106,7 @@ func (m JobManager) GetJobResponse(jobID int64) (j data.Job, r data.JobResponse,
 	}
 	defer db.Close()
 
-	rows, err := db.Query("SELECT "+
-		"j.idjob, j.idschedule, j.when, j.arn, j.payload, "+
-		"jr.idjobresponse, jr.idjob, jr.time, jr.response, jr.iserror, jr.error "+
-		"FROM `job` j "+
-		"LEFT JOIN jobresponse jr on jr.idjob = j.idjob "+
-		"WHERE "+
-		"jr.idjob = ?", jobID)
+	rows, err := db.Query("call jm_getjobresponse(?)", jobID)
 	if err != nil {
 		return
 	}
@@ -119,10 +114,21 @@ func (m JobManager) GetJobResponse(jobID int64) (j data.Job, r data.JobResponse,
 
 	for rows.Next() {
 		jobOK = true
-		var isErrorStr string
+		var jrID, jrJobID sql.NullInt64
+		var jrTime gomysql.NullTime
+		var jrResp, jrIsErrorStr, jrError sql.NullString
+
 		err = rows.Scan(&j.JobID, &j.ScheduleID, &j.When, &j.ARN, &j.Payload,
-			&r.JobResponseID, &r.JobID, &r.Time, &r.Response, &isErrorStr, &r.Error)
-		r.IsError = convertMySQLBoolean(isErrorStr)
+			&jrID, &jrJobID, &jrTime, &jrResp, &jrIsErrorStr, &jrError)
+
+		if jrID.Int64 > 0 {
+			r.JobResponseID = jrID.Int64
+			r.JobID = jrJobID.Int64
+			r.Time = jrTime.Time
+			r.Response = jrResp.String
+			r.IsError = convertMySQLBoolean(jrIsErrorStr.String)
+			r.Error = jrError.String
+		}
 		break
 	}
 	return j, r, jobOK, r.JobResponseID > 0, err
