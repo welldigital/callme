@@ -29,7 +29,7 @@ START TRANSACTION;
 	  `idschedule` INT NOT NULL AUTO_INCREMENT,
 	  `externalid` VARCHAR(256) NOT NULL,
 	  `by` VARCHAR(256) NOT NULL,
-	  `arn` TEXT NOT NULL,
+	  `arn` VARCHAR(2048) NOT NULL,
 	  `payload` MEDIUMTEXT NOT NULL,
 	  `created` DATETIME(6) NOT NULL,
 	  `active` BIT NOT NULL,

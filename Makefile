@@ -5,7 +5,7 @@ run-worker:
 	cd ./worker/ && CALLME_CONNECTION_STRING='root:callme@tcp(localhost:3306)/callme?parseTime=true&multiStatements=true' go run main.go
 
 run-api:
-	cd ./api/ && CALLME_CONNECTION_STRING='root:callme@tcp(localhost:3306)/callme?parseTime=true&multiStatements=true' go run main.go
+	cd ./api/ && go build && CALLME_CONNECTION_STRING='root:callme@tcp(localhost:3306)/callme?parseTime=true&multiStatements=true' ./api
 
 run-integration-test:
 	cd ./worker/ && go build && cd ../harness && go run main.go

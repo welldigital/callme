@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/welldigital/callme/api/response"
 	"github.com/welldigital/callme/data"
 	"github.com/welldigital/callme/logger"
-	"github.com/gorilla/mux"
 )
 
 // Handler is the HTTP handler for the /job path of the API.
@@ -44,20 +44,20 @@ func (h *Handler) Post(w http.ResponseWriter, r *http.Request) {
 	}
 	var j data.Job
 	if err := json.Unmarshal(body, &j); err != nil {
-		logger.For(pkg, "Post").WithError(err).Errorf("failed to parse request")
+		logger.For(pkg, "Post").WithError(err).Error("failed to parse request")
 		response.ErrorString("failed to parse request", w, http.StatusUnprocessableEntity)
 		return
 	}
 	// Validate the job.
 	if err = validateJob(j); err != nil {
-		logger.WithJob(pkg, "Post", j).WithError(err).Errorf("failed to validate job")
+		logger.WithJob(pkg, "Post", j).WithError(err).Error("failed to validate job")
 		response.Error(err, w, http.StatusUnprocessableEntity)
 		return
 	}
 	// Start it.
 	j, err = h.JobStarter(j.When, j.ARN, j.Payload, nil)
 	if err != nil {
-		logger.WithJob(pkg, "Post", j).WithError(err).Errorf("failed to start job")
+		logger.WithJob(pkg, "Post", j).WithError(err).Error("failed to start job")
 		response.ErrorString("failed to start job", w, http.StatusInternalServerError)
 		return
 	}
@@ -69,7 +69,7 @@ func validateJob(j data.Job) error {
 		return errors.New("cannot post to an existing job")
 	}
 	if j.ARN == "" {
-		return errors.New("an ARN is required")
+		return errors.New("ARN is required")
 	}
 	if len(j.ARN) > 2048 {
 		return errors.New("maximum length of the ARN is 2048 characters")
@@ -95,7 +95,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	jobID, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
-		logger.For(pkg, "Get").WithError(err).WithField("jobID", id).Errorf("failed to parse jobID")
+		logger.For(pkg, "Get").WithError(err).WithField("jobID", id).Error("failed to parse jobID")
 		response.ErrorString("failed to parse jobID", w, http.StatusBadRequest)
 		return
 	}
@@ -130,18 +130,18 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 	jobID, err := strconv.ParseInt(id, 10, 64)
 	if err != nil {
-		logger.For(pkg, "Delete").WithError(err).WithField("jobID", id).Errorf("failed to parse jobID")
+		logger.For(pkg, "Delete").WithError(err).WithField("jobID", id).Error("failed to parse jobID")
 		response.ErrorString("failed to parse jobID", w, http.StatusBadRequest)
 		return
 	}
 	ok, err := h.JobDeleter(jobID)
 	if err != nil {
-		logger.For(pkg, "Delete").WithError(err).WithField("jobID", jobID).Errorf("failed to delete job")
+		logger.For(pkg, "Delete").WithError(err).WithField("jobID", jobID).Error("failed to delete job")
 		response.ErrorString("failed to delete job", w, http.StatusInternalServerError)
 		return
 	}
 	if !ok {
-		logger.For(pkg, "Delete").WithField("jobID", jobID).Errorf("could not delete job, it's probably been processed already")
+		logger.For(pkg, "Delete").WithField("jobID", jobID).Error("could not delete job, it's probably been processed already")
 		response.OK(false, w, http.StatusNotModified)
 		return
 	}

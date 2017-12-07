@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/welldigital/callme/data"
 	"github.com/gorilla/mux"
+	"github.com/welldigital/callme/data"
 )
 
 const notFoundMessage = `404 page not found` + "\n"
@@ -38,7 +38,7 @@ func TestGetByID(t *testing.T) {
 			},
 			r:              httptest.NewRequest("GET", "/job/1", nil),
 			expectedStatus: http.StatusOK,
-			expectedBody:   `{"Job":{"JobID":1,"ScheduleID":null,"When":"2000-01-01T01:01:00Z","ARN":"testarn","Payload":"testpayload"},"JobResponse":{"JobResponseID":0,"JobID":0,"Time":"0001-01-01T00:00:00Z","Response":"","IsError":false,"Error":""},"HasJobResponse":false}`,
+			expectedBody:   `{"job":{"jobId":1,"scheduleId":null,"when":"2000-01-01T01:01:00Z","arn":"testarn","payload":"testpayload"},"response":{"jobResponseId":0,"jobId":0,"time":"0001-01-01T00:00:00Z","response":"","isError":false,"error":""},"hasJobResponse":false}`,
 		},
 		{
 			name:           "missing id",
@@ -183,7 +183,7 @@ func TestPost(t *testing.T) {
 					ScheduleID: scheduleID}, nil
 			},
 			expectedStatus: http.StatusCreated,
-			expectedBody:   `{"JobID":1,"ScheduleID":null,"When":"2000-01-01T00:00:00Z","ARN":"example.com","Payload":"test_payload"}`,
+			expectedBody:   `{"jobId":1,"scheduleId":null,"when":"2000-01-01T00:00:00Z","arn":"example.com","payload":"test_payload"}`,
 		},
 		{
 			name:           "malformed body",
@@ -212,7 +212,7 @@ func TestPost(t *testing.T) {
 		{
 			name: "try and update an existing job fails",
 			r: httptest.NewRequest("POST", "/job/",
-				strings.NewReader(`{ "jobID": 1, "when": "2000-01-01T00:00:00Z", "arn": "example.com", "payload": "test_payload" }`)),
+				strings.NewReader(`{ "jobId": 1, "when": "2000-01-01T00:00:00Z", "arn": "example.com", "payload": "test_payload" }`)),
 			s: func(when time.Time, arn string, payload string, scheduleID *int64) (data.Job, error) {
 				return data.Job{
 					JobID:      1,
@@ -227,7 +227,7 @@ func TestPost(t *testing.T) {
 		{
 			name: "try and update a schedule fails",
 			r: httptest.NewRequest("POST", "/job/",
-				strings.NewReader(`{ "scheduleID": 35, "when": "2000-01-01T00:00:00Z", "arn": "example.com", "payload": "test_payload" }`)),
+				strings.NewReader(`{ "scheduleId": 35, "when": "2000-01-01T00:00:00Z", "arn": "example.com", "payload": "test_payload" }`)),
 			s: func(when time.Time, arn string, payload string, scheduleID *int64) (data.Job, error) {
 				return data.Job{
 					JobID:      1,
@@ -252,7 +252,7 @@ func TestPost(t *testing.T) {
 					ScheduleID: scheduleID}, nil
 			},
 			expectedStatus: http.StatusUnprocessableEntity,
-			expectedBody:   `{"err":"an ARN is required"}`,
+			expectedBody:   `{"err":"ARN is required"}`,
 		},
 		{
 			name: "ARN is too big",

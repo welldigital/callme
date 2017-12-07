@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/welldigital/callme/data"
 	_ "github.com/go-sql-driver/mysql" // Requires MySQL
+	"github.com/welldigital/callme/data"
 )
 
 // ScheduleManager provides features to manage schedules using MySQL.
@@ -85,17 +85,69 @@ func (m ScheduleManager) Create(from time.Time, arn string, payload string, cron
 }
 
 // Deactivate deactivates a schedule.
-func (m ScheduleManager) Deactivate(scheduleID int64) error {
+func (m ScheduleManager) Deactivate(scheduleID int64) (ok bool, err error) {
 	db, err := sql.Open("mysql", m.ConnectionString)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer db.Close()
 
-	_, err = db.Exec("UPDATE `schedule` SET active = 0, deactivateddate = utc_timestamp() WHERE `schedule`.`idschedule` = ?",
+	res, err := db.Exec("UPDATE `schedule` SET active = 0, deactivateddate = utc_timestamp() WHERE `schedule`.`idschedule` = ?",
 		scheduleID)
+	if err != nil {
+		return
+	}
 
-	return err
+	affectedRows, err := res.RowsAffected()
+	ok = affectedRows > 0
+
+	return
+}
+
+// GetScheduleByID gets a schedule's information by its ID.
+func (m ScheduleManager) GetScheduleByID(scheduleID int64) (sc data.ScheduleCrontabs, ok bool, err error) {
+	db, err := sql.Open("mysql", m.ConnectionString)
+	if err != nil {
+		return
+	}
+	defer db.Close()
+
+	rows, err := db.Query("call sm_getschedulebyid(?)", scheduleID)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	sc.Crontabs = make([]data.Crontab, 0)
+	var isActiveStr string
+	var deactivatedDate *time.Time
+	for rows.Next() {
+		var ct data.Crontab
+		err = rows.Scan(&sc.Schedule.ScheduleID,
+			&sc.Schedule.ExternalID,
+			&sc.Schedule.By,
+			&sc.Schedule.ARN,
+			&sc.Schedule.Payload,
+			&sc.Schedule.Created,
+			&isActiveStr,
+			&deactivatedDate,
+			&ct.CrontabID,
+			&ct.ScheduleID,
+			&ct.Crontab,
+			&ct.Previous,
+			&ct.Next,
+			&ct.LastUpdated)
+		if err != nil {
+			return
+		}
+		sc.Schedule.Active = convertMySQLBoolean(isActiveStr)
+		if deactivatedDate != nil {
+			sc.Schedule.DeactivatedDate = *deactivatedDate
+		}
+		sc.Crontabs = append(sc.Crontabs, ct)
+		ok = true
+	}
+	return
 }
 
 // GetSchedule is a ScheduleGetter which locks a schedule where Next is in the past, in order to schedule jobs.

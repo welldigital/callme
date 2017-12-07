@@ -1,8 +1,8 @@
 package logger
 
 import (
-	"github.com/welldigital/callme/data"
 	log "github.com/sirupsen/logrus"
+	"github.com/welldigital/callme/data"
 )
 
 func init() {
