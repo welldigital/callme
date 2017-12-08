@@ -2,19 +2,13 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/golang:1.9.2
+      - image: crowdworks/dep:latest
+        environment:
+          GOPATH: /go
     working_directory: /go/src/github.com/welldigital/callme
     steps:
       - checkout
       - setup_remote_docker
-      - run:
-          name: Install dependencies
-          command: |
-            apk add --no-cache \
-              py-pip=9.0.0-r1
-            pip install \
-              docker-compose==1.12.0 \
-              awscli==1.11.76
       - run:
           name: Install
           command: make install
