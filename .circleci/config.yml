@@ -21,14 +21,14 @@ jobs:
             if [ "${CIRCLE_BRANCH}" == "master" ]; then
               eval $(aws ecr get-login --region eu-west-2)
 
-              docker tag welldigital/callme:worker-latest "${ECR_ENDPOINT}/callme:worker-${CIRCLE_SHA1}"
-              docker tag welldigital/callme:worker-latest "${ECR_ENDPOINT}/callme:worker-latest"
-              docker push "${ECR_ENDPOINT}/callme:worker-${CIRCLE_SHA1}"
-              docker push "${ECR_ENDPOINT}/callme:worker-latest"
+              docker tag welldigital/callme:worker-latest ${ECR_ENDPOINT}/callme:worker-${CIRCLE_SHA1}
+              docker tag welldigital/callme:worker-latest ${ECR_ENDPOINT}/callme:worker-latest
+              docker push ${ECR_ENDPOINT}/callme:worker-${CIRCLE_SHA1}
+              docker push ${ECR_ENDPOINT}/callme:worker-latest
 
-              docker tag welldigital/callme:api-latest "${ECR_ENDPOINT}/callme:api-${CIRCLE_SHA1}"
-              docker tag welldigital/callme:api-latest "${ECR_ENDPOINT}/callme:api-latest"
-              docker push "${ECR_ENDPOINT}/callme:api-${CIRCLE_SHA1}"
-              docker push "${ECR_ENDPOINT}/callme:api-latest"
+              docker tag welldigital/callme:api-latest "${ECR_ENDPOINT}/callme:api-${CIRCLE_SHA1}
+              docker tag welldigital/callme:api-latest "${ECR_ENDPOINT}/callme:api-latest
+              docker push ${ECR_ENDPOINT}/callme:api-${CIRCLE_SHA1}
+              docker push ${ECR_ENDPOINT}/callme:api-latest
             fi
       
