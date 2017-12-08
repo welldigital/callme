@@ -3,10 +3,11 @@ jobs:
   build:
     docker:
       - image: circleci/golang:1.9.2
-    working_directory: ~/go/src/github.com/welldigital/callme
+    working_directory: /go/src/github.com/welldigital/callme
     steps:
       - checkout
       - setup_remote_docker
+      - run: pwd
       - run:
           name: Install
           command: make install
