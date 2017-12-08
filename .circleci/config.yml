@@ -19,7 +19,7 @@ jobs:
           name: Push application Docker images
           command: |
             if [ "${CIRCLE_BRANCH}" == "master" ]; then
-              eval $(aws ecr get-login --region eu-west-2)
+              eval $(aws ecr get-login --region eu-west-2 --no-include-email)
 
               docker tag welldigital/callme:worker-latest ${ECR_ENDPOINT}/callme:worker-${CIRCLE_SHA1}
               docker tag welldigital/callme:worker-latest ${ECR_ENDPOINT}/callme:worker-latest
