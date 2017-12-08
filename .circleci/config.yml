@@ -26,8 +26,8 @@ jobs:
               docker push ${ECR_ENDPOINT}/callme:worker-${CIRCLE_SHA1}
               docker push ${ECR_ENDPOINT}/callme:worker-latest
 
-              docker tag welldigital/callme:api-latest "${ECR_ENDPOINT}/callme:api-${CIRCLE_SHA1}
-              docker tag welldigital/callme:api-latest "${ECR_ENDPOINT}/callme:api-latest
+              docker tag welldigital/callme:api-latest ${ECR_ENDPOINT}/callme:api-${CIRCLE_SHA1}
+              docker tag welldigital/callme:api-latest ${ECR_ENDPOINT}/callme:api-latest
               docker push ${ECR_ENDPOINT}/callme:api-${CIRCLE_SHA1}
               docker push ${ECR_ENDPOINT}/callme:api-latest
             fi
