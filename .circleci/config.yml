@@ -2,9 +2,10 @@ version: 2
 jobs:
   build:
     docker:
-      - image: golang:1.9.2-alpine
+      - image: circleci/golang:1.9.2
     steps:
       - checkout
+      - setup_remote_docker
       - run:
           name: Build
           command: make docker-build
