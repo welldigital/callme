@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: crowdworks/dep:latest
+      - image: welldigital/golang-build:latest
         environment:
           GOPATH: /go
     working_directory: /go/src/github.com/welldigital/callme
