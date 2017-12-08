@@ -22,5 +22,5 @@ docker-compose-up:
 docker-compose-build: docker-build docker-compose-up
 
 install:
-	cd ./worker/ && go install
-	cd ./api/ && go install
+	cd ./worker/ && go get -v
+	cd ./api/ && go get -v
