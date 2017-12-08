@@ -2,3 +2,4 @@ worker/worker
 worker/worker_linux
 api/api
 api/api_linux
+*/vendor/
