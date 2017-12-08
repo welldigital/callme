@@ -19,6 +19,10 @@ jobs:
           name: Push application Docker images
           command: |
             if [ "${CIRCLE_BRANCH}" == "master" ]; then
+              aws --version
+              aws configure set default.region eu-west-2
+              aws configure set default.output json
+
               login="$(aws ecr get-login)"
               ${login}
               docker tag welldigital/callme:worker-latest "${ECR_ENDPOINT}/callme:worker-${CIRCLE_SHA1}"
