@@ -69,9 +69,17 @@ func (m ScheduleManager) Create(from time.Time, arn string, payload string, cron
 	if err != nil {
 		return 0, err
 	}
-	var emptyTime time.Time
+
+	// Don't allow schedules to be started in the past, since the system will attempt
+	// to catch up.
+	startTime := from
+	if from.Before(s.Created) {
+		startTime = s.Created
+	}
+
 	for _, crontab := range crontabs {
-		_, err := crontabInsert.Exec(scheduleID, crontab, emptyTime, from, emptyTime)
+		// The first insertion needs to initialise dates with start times.
+		_, err := crontabInsert.Exec(scheduleID, crontab, s.Created, startTime, startTime)
 		if err != nil {
 			return 0, err
 		}
